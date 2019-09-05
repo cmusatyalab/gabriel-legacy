@@ -7,6 +7,8 @@ def error_output(frame_id):
     output = gabriel_pb2.Output()
     output.status = gabriel_pb2.Output.Status.WRONG_INPUT_FORMAT
 
+    return output
+
 
 class Engine(ABC):
     @abstractmethod
