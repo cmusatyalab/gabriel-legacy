@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='gabriel.proto',
   package='gabriel',
   syntax='proto3',
-  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\x90\x01\n\x05Input\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12!\n\x04type\x18\x02 \x01(\x0e\x32\x13.gabriel.Input.Type\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\r\n\x05style\x18\x04 \x01(\t\"2\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\t\n\x05\x41\x43\x43\x45L\x10\x03\"\xaa\x02\n\x06Output\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x06status\x18\x02 \x01(\x0e\x32\x16.gabriel.Output.Status\x12\'\n\x07results\x18\x03 \x03(\x0b\x32\x16.gabriel.Output.Result\x1a\x43\n\x06Result\x12(\n\x04type\x18\x01 \x01(\x0e\x32\x1a.gabriel.Output.ResultType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"0\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\t\n\x05\x45RROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\"F\n\nResultType\x12\r\n\tANIMATION\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05IMAGE\x10\x02\x12\t\n\x05\x41UDIO\x10\x03\x12\x08\n\x04TEXT\x10\x04\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
+  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\x98\x01\n\x05Input\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12!\n\x04type\x18\x02 \x01(\x0e\x32\x13.gabriel.Input.Type\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\r\n\x05style\x18\x04 \x01(\t\":\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\"\xd6\x02\n\x06Output\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x06status\x18\x02 \x01(\x0e\x32\x16.gabriel.Output.Status\x12\'\n\x07results\x18\x03 \x03(\x0b\x32\x16.gabriel.Output.Result\x1a\x92\x01\n\x06Result\x12/\n\x04type\x18\x01 \x01(\x0e\x32!.gabriel.Output.Result.ResultType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"F\n\nResultType\x12\r\n\tANIMATION\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05IMAGE\x10\x02\x12\t\n\x05\x41UDIO\x10\x03\x12\x08\n\x04TEXT\x10\x04\"T\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -44,46 +44,20 @@ _INPUT_TYPE = _descriptor.EnumDescriptor(
       options=None,
       type=None),
     _descriptor.EnumValueDescriptor(
-      name='ACCEL', index=3, number=3,
+      name='ACCELEROMETER', index=3, number=3,
       options=None,
       type=None),
   ],
   containing_type=None,
   options=None,
   serialized_start=121,
-  serialized_end=171,
+  serialized_end=179,
 )
 _sym_db.RegisterEnumDescriptor(_INPUT_TYPE)
 
-_OUTPUT_STATUS = _descriptor.EnumDescriptor(
-  name='Status',
-  full_name='gabriel.Output.Status',
-  filename=None,
-  file=DESCRIPTOR,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='SUCCESS', index=0, number=0,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='ERROR', index=1, number=1,
-      options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='QUEUE_FULL', index=2, number=2,
-      options=None,
-      type=None),
-  ],
-  containing_type=None,
-  options=None,
-  serialized_start=352,
-  serialized_end=400,
-)
-_sym_db.RegisterEnumDescriptor(_OUTPUT_STATUS)
-
-_OUTPUT_RESULTTYPE = _descriptor.EnumDescriptor(
+_OUTPUT_RESULT_RESULTTYPE = _descriptor.EnumDescriptor(
   name='ResultType',
-  full_name='gabriel.Output.ResultType',
+  full_name='gabriel.Output.Result.ResultType',
   filename=None,
   file=DESCRIPTOR,
   values=[
@@ -110,10 +84,40 @@ _OUTPUT_RESULTTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=402,
-  serialized_end=472,
+  serialized_start=368,
+  serialized_end=438,
 )
-_sym_db.RegisterEnumDescriptor(_OUTPUT_RESULTTYPE)
+_sym_db.RegisterEnumDescriptor(_OUTPUT_RESULT_RESULTTYPE)
+
+_OUTPUT_STATUS = _descriptor.EnumDescriptor(
+  name='Status',
+  full_name='gabriel.Output.Status',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='SUCCESS', index=0, number=0,
+      options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='UNSPECIFIED_ERROR', index=1, number=1,
+      options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='QUEUE_FULL', index=2, number=2,
+      options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='WRONG_INPUT_FORMAT', index=3, number=3,
+      options=None,
+      type=None),
+  ],
+  containing_type=None,
+  options=None,
+  serialized_start=440,
+  serialized_end=524,
+)
+_sym_db.RegisterEnumDescriptor(_OUTPUT_STATUS)
 
 
 _INPUT = _descriptor.Descriptor(
@@ -165,7 +169,7 @@ _INPUT = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=27,
-  serialized_end=171,
+  serialized_end=179,
 )
 
 
@@ -195,6 +199,7 @@ _OUTPUT_RESULT = _descriptor.Descriptor(
   ],
   nested_types=[],
   enum_types=[
+    _OUTPUT_RESULT_RESULTTYPE,
   ],
   options=None,
   is_extendable=False,
@@ -202,8 +207,8 @@ _OUTPUT_RESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=283,
-  serialized_end=350,
+  serialized_start=292,
+  serialized_end=438,
 )
 
 _OUTPUT = _descriptor.Descriptor(
@@ -240,7 +245,6 @@ _OUTPUT = _descriptor.Descriptor(
   nested_types=[_OUTPUT_RESULT, ],
   enum_types=[
     _OUTPUT_STATUS,
-    _OUTPUT_RESULTTYPE,
   ],
   options=None,
   is_extendable=False,
@@ -248,18 +252,18 @@ _OUTPUT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=174,
-  serialized_end=472,
+  serialized_start=182,
+  serialized_end=524,
 )
 
 _INPUT.fields_by_name['type'].enum_type = _INPUT_TYPE
 _INPUT_TYPE.containing_type = _INPUT
-_OUTPUT_RESULT.fields_by_name['type'].enum_type = _OUTPUT_RESULTTYPE
+_OUTPUT_RESULT.fields_by_name['type'].enum_type = _OUTPUT_RESULT_RESULTTYPE
 _OUTPUT_RESULT.containing_type = _OUTPUT
+_OUTPUT_RESULT_RESULTTYPE.containing_type = _OUTPUT_RESULT
 _OUTPUT.fields_by_name['status'].enum_type = _OUTPUT_STATUS
 _OUTPUT.fields_by_name['results'].message_type = _OUTPUT_RESULT
 _OUTPUT_STATUS.containing_type = _OUTPUT
-_OUTPUT_RESULTTYPE.containing_type = _OUTPUT
 DESCRIPTOR.message_types_by_name['Input'] = _INPUT
 DESCRIPTOR.message_types_by_name['Output'] = _OUTPUT
 
