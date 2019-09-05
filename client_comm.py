@@ -19,6 +19,7 @@ class WebsocketServer:
 
         # asyncio.Queue does not block the event loop
         self.result_queue = asyncio.Queue()
+        
         self.event_loop = asyncio.get_event_loop()
 
     async def send_queue_full_message(self, websocket, frame_id):

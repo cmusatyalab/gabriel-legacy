@@ -6,7 +6,6 @@ from client_comm import WebsocketServer
 logger = logging.getLogger(__name__)
 
 
-
 def _run_engine(self, engine_setup, input_queue, submit_result):
     engine = engine_setup()
     logger.info('Cognitive engine started')
