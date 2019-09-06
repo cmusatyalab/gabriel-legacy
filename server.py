@@ -15,7 +15,7 @@ def _run_engine(engine_setup, input_queue, conn):
     logger.info('Cognitive engine started')
     while True:
         input_proto_host = input_queue.get()
-        from_client = gabriel_pb2.from_client()
+        from_client = gabriel_pb2.FromClient()
         from_client.ParseFromString(input_proto_host.proto)
 
         from_server = engine.handle(from_client)
