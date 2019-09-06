@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='gabriel.proto',
   package='gabriel',
   syntax='proto3',
-  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\xa2\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x04type\x18\x02 \x01(\x0e\x32\x18.gabriel.FromClient.Type\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\r\n\x05style\x18\x04 \x01(\t\":\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\"\xe6\x02\n\nFromServer\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12*\n\x06status\x18\x02 \x01(\x0e\x32\x1a.gabriel.FromServer.Status\x12+\n\x07results\x18\x03 \x03(\x0b\x32\x1a.gabriel.FromServer.Result\x1a\x96\x01\n\x06Result\x12\x33\n\x04type\x18\x01 \x01(\x0e\x32%.gabriel.FromServer.Result.ResultType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"F\n\nResultType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x08\n\x04TEXT\x10\x03\x12\r\n\tANIMATION\x10\x04\"T\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
+  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\xb2\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x04type\x18\x02 \x01(\x0e\x32\x18.gabriel.FromClient.Type\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\x12\x0e\n\x06\x65ngine\x18\x04 \x01(\t\x12\r\n\x05style\x18\x05 \x01(\t\":\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\"\xf6\x02\n\nFromServer\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12*\n\x06status\x18\x02 \x01(\x0e\x32\x1a.gabriel.FromServer.Status\x12\x0e\n\x06\x65ngine\x18\x03 \x01(\t\x12+\n\x07results\x18\x04 \x03(\x0b\x32\x1a.gabriel.FromServer.Result\x1a\x96\x01\n\x06Result\x12\x33\n\x04type\x18\x01 \x01(\x0e\x32%.gabriel.FromServer.Result.ResultType\x12\x0f\n\x07payload\x18\x02 \x01(\x0c\"F\n\nResultType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x08\n\x04TEXT\x10\x03\x12\r\n\tANIMATION\x10\x04\"T\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -50,8 +50,8 @@ _FROMCLIENT_TYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=131,
-  serialized_end=189,
+  serialized_start=147,
+  serialized_end=205,
 )
 _sym_db.RegisterEnumDescriptor(_FROMCLIENT_TYPE)
 
@@ -84,8 +84,8 @@ _FROMSERVER_RESULT_RESULTTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=394,
-  serialized_end=464,
+  serialized_start=426,
+  serialized_end=496,
 )
 _sym_db.RegisterEnumDescriptor(_FROMSERVER_RESULT_RESULTTYPE)
 
@@ -114,8 +114,8 @@ _FROMSERVER_STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=466,
-  serialized_end=550,
+  serialized_start=498,
+  serialized_end=582,
 )
 _sym_db.RegisterEnumDescriptor(_FROMSERVER_STATUS)
 
@@ -149,8 +149,15 @@ _FROMCLIENT = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='style', full_name='gabriel.FromClient.style', index=3,
+      name='engine', full_name='gabriel.FromClient.engine', index=3,
       number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='style', full_name='gabriel.FromClient.style', index=4,
+      number=5, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -169,7 +176,7 @@ _FROMCLIENT = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=27,
-  serialized_end=189,
+  serialized_end=205,
 )
 
 
@@ -207,8 +214,8 @@ _FROMSERVER_RESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=314,
-  serialized_end=464,
+  serialized_start=346,
+  serialized_end=496,
 )
 
 _FROMSERVER = _descriptor.Descriptor(
@@ -233,8 +240,15 @@ _FROMSERVER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='results', full_name='gabriel.FromServer.results', index=2,
-      number=3, type=11, cpp_type=10, label=3,
+      name='engine', full_name='gabriel.FromServer.engine', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='results', full_name='gabriel.FromServer.results', index=3,
+      number=4, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -252,8 +266,8 @@ _FROMSERVER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=192,
-  serialized_end=550,
+  serialized_start=208,
+  serialized_end=582,
 )
 
 _FROMCLIENT.fields_by_name['type'].enum_type = _FROMCLIENT_TYPE
