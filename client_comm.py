@@ -33,6 +33,7 @@ class WebsocketServer:
     async def send_queue_full_message(self, websocket, frame_id):
         logger.warn('Queue full')
         from_server = gabriel_pb2.FromServer()
+        from_server.frame_id = frame_id
         from_server.status = gabriel_pb2.FromServer.Status.QUEUE_FULL
         await websocket.send(from_server.SerializeToString())
 
