@@ -1,7 +1,9 @@
 import logging
-from multiprocessing import Process, Pipe
+from multiprocessing import Process
+from multiprocessing import Pipe
 from threading import Thread
 from gabriel_server.client_comm import WebsocketServer
+from gabriel_server.client_comm import ProtoHost
 from gabriel_server import gabriel_pb2
 
 
@@ -12,12 +14,15 @@ def _run_engine(engine_setup, input_queue, conn):
     engine = engine_setup()
     logger.info('Cognitive engine started')
     while True:
-        raw_input = input_queue.get()
-        input = gabriel_pb2.Input()
-        input.ParseFromString(raw_input)
+        input_proto_host = input_queue.get()
+        from_client = gabriel_pb2.from_client()
+        from_client.ParseFromString(input_proto_host.proto)
 
-        result = engine.handle(input)
-        conn.send(result.SerializeToString())
+        from_server = engine.handle(from_client)
+        result_proto_host = ProtoHost(
+            proto=from_server.SerializeToString(),
+            host=input_proto_host.host)
+        conn.send(result_proto_host)
 
 
 def _queue_shuttle(websocket_server, conn):
@@ -28,8 +33,9 @@ def _queue_shuttle(websocket_server, conn):
     running the event loop.'''
 
     while True:
-        result = conn.recv()
-        websocket_server.submit_result(result)
+        result_proto_host = conn.recv()
+        websocket_server.submit_result(
+            result_proto_host.proto, result_proto_host.host)
 
 
 class Server:

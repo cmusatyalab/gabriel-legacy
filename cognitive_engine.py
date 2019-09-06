@@ -4,10 +4,10 @@ from abc import abstractmethod
 
 
 def error_output(frame_id):
-    output = gabriel_pb2.Output()
-    output.status = gabriel_pb2.Output.Status.WRONG_INPUT_FORMAT
+    from_server = gabriel_pb2.FromServer()
+    from_server.status = gabriel_pb2.FromServer.Status.WRONG_INPUT_FORMAT
 
-    return output
+    return from_server
 
 
 class Engine(ABC):
