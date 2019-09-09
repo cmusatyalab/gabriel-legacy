@@ -3,7 +3,7 @@ from multiprocessing import Process
 from multiprocessing import Pipe
 from threading import Thread
 from gabriel_server.client_comm import WebsocketServer
-from gabriel_server.client_comm import ProtoHost
+from gabriel_server.client_comm import ProtoAddress
 from gabriel_server import gabriel_pb2
 
 
@@ -22,9 +22,9 @@ def _run_engine(engine_setup, input_queue, conn):
     engine = engine_setup()
     logger.info('Cognitive engine started')
     while True:
-        input_proto_host = input_queue.get()
+        input_proto_address = input_queue.get()
         from_client = gabriel_pb2.FromClient()
-        from_client.ParseFromString(input_proto_host.proto)
+        from_client.ParseFromString(input_proto_address.proto)
 
         if from_client.engine == engine.proto_engine:
             from_server = engine.handle(from_client)
@@ -32,10 +32,10 @@ def _run_engine(engine_setup, input_queue, conn):
             from_server = _engine_not_available_message(
                 from_client.frame_id)
 
-        result_proto_host = ProtoHost(
+        result_proto_address = ProtoAddress(
             proto=from_server.SerializeToString(),
-            host=input_proto_host.host)
-        conn.send(result_proto_host)
+            address=input_proto_address.address)
+        conn.send(result_proto_address)
 
 
 def _queue_shuttle(websocket_server, conn):
@@ -46,9 +46,9 @@ def _queue_shuttle(websocket_server, conn):
     running the event loop.'''
 
     while True:
-        result_proto_host = conn.recv()
+        result_proto_address = conn.recv()
         websocket_server.submit_result(
-            result_proto_host.proto, result_proto_host.host)
+            result_proto_address.proto, result_proto_address.address)
 
 
 def run(engine_setup, engine_check):

@@ -17,7 +17,7 @@ websockets_logger = logging.getLogger('websockets')
 websockets_logger.setLevel(logging.INFO)
 
 
-ProtoHost = namedtuple('ProtoHost', ['proto', 'host'])
+ProtoAddress = namedtuple('ProtoAddress', ['proto', 'address'])
 
 
 class WebsocketServer:
@@ -38,15 +38,15 @@ class WebsocketServer:
         await websocket.send(from_server.SerializeToString())
 
     async def consumer_handler(self, websocket):
-        host = websocket.remote_address[0]
+        address = websocket.remote_address
 
         async for raw_input in websocket:
-            logger.debug('Received input from %s', host)
+            logger.debug('Received input from %s', address)
             try:
                 # We cannot put the deserialized protobuf in a
                 # multiprocessing.Queue because it cannot be pickled
-                proto_host = ProtoHost(proto=raw_input, host=host)
-                self.input_queue.put_nowait(proto_host)
+                proto_address = ProtoAddress(proto=raw_input, addresss=address)
+                self.input_queue.put_nowait(proto_address)
             except queue.Full:
                 from_client = gabriel_pb2.FromClient()
                 from_client.ParseFromString(raw_input)
@@ -54,20 +54,20 @@ class WebsocketServer:
                     websocket, from_client.frame_id)
 
     async def producer_handler(self, websocket, result_queue):
-        host = websocket.remote_address[0]
+        address = websocket.remote_address
 
         while True:
             output = await result_queue.get()
-            logger.debug('Sending to %s', host)
+            logger.debug('Sending to %s', address)
             await websocket.send(output)
 
     async def handler(self, websocket, _):
-        host = websocket.remote_address[0]
-        logger.info('New Client connected: %s', host)
+        address = websocket.remote_address
+        logger.info('New Client connected: %s', address)
 
         # asyncio.Queue does not block the event loop
         result_queue = asyncio.Queue()
-        self.result_queues[host] = result_queue
+        self.result_queues[address] = result_queue
 
         try:
             consumer_task = asyncio.ensure_future(
@@ -80,26 +80,27 @@ class WebsocketServer:
             for task in pending:
                 task.cancel()
         finally:
-            del self.result_queues[host]
-        logger.info('Client disconnected: %s', host)
+            del self.result_queues[address]
+        logger.info('Client disconnected: %s', address)
 
     def launch(self):
         start_server = websockets.serve(self.handler, port=PORT)
         self.event_loop.run_until_complete(start_server)
         self.event_loop.run_forever()
 
-    async def queue_result(self, result, host):
-        result_queue = self.result_queues.get(host)
+    async def queue_result(self, result, address):
+        result_queue = self.result_queues.get(address)
         if result_queue is None:
-            logger.warning('Result for nonexistant host %s', host)
+            logger.warning('Result for nonexistant address %s', address)
         else:
             await result_queue.put(result)
 
-    def submit_result(self, result, host):
+    def submit_result(self, result, address):
         '''Add a result to self.result_queue.
 
-        Can be called from a different process.'''
+        Can be called from a different thread. But this thread must be part of
+        the same process as the event loop.'''
 
         asyncio.run_coroutine_threadsafe(
-            self.queue_result(result, host),
+            self.queue_result(result, address),
             self.event_loop)
