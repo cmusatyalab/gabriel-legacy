@@ -88,11 +88,18 @@ class WebsocketServer:
         self.event_loop.run_until_complete(start_server)
         self.event_loop.run_forever()
 
+    async def queue_result(self, result, host):
+        result_queue = self.result_queues.get(host)
+        if result_queue is None:
+            logger.warning('Result for nonexistant host %s', host)
+        else:
+            await result_queue.put(result)
+
     def submit_result(self, result, host):
         '''Add a result to self.result_queue.
 
         Can be called from a different process.'''
 
         asyncio.run_coroutine_threadsafe(
-            self.result_queues[host].put(result),
+            self.queue_result(result, host),
             self.event_loop)
