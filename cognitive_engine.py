@@ -1,6 +1,6 @@
 from abc import ABC
 from abc import abstractmethod
-
+from gabriel_server import gabriel_pb2
 
 
 def wrong_input_format_error(frame_id):
@@ -12,6 +12,13 @@ def wrong_input_format_error(frame_id):
 
 
 class Engine(ABC):
+    @property
     @abstractmethod
-    def handle(self, input):
+    def proto_engine(self):
+        '''The gabriel_pb2.Engine value correspoinding to this cognitive
+        engine'''
+        pass
+
+    @abstractmethod
+    def handle(self, from_client):
         pass
