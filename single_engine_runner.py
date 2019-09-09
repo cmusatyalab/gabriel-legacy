@@ -51,7 +51,7 @@ def _queue_shuttle(websocket_server, conn):
             result_proto_host.proto, result_proto_host.host)
 
 
-def run(engine_setup, engine_check):
+def run(engine_setup):
     '''This should never return'''
     websocket_server = WebsocketServer()
 
