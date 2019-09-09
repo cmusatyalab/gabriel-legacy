@@ -45,7 +45,7 @@ class WebsocketServer:
             try:
                 # We cannot put the deserialized protobuf in a
                 # multiprocessing.Queue because it cannot be pickled
-                proto_address = ProtoAddress(proto=raw_input, addresss=address)
+                proto_address = ProtoAddress(proto=raw_input, address=address)
                 self.input_queue.put_nowait(proto_address)
             except queue.Full:
                 from_client = gabriel_pb2.FromClient()
@@ -81,7 +81,7 @@ class WebsocketServer:
                 task.cancel()
         finally:
             del self.result_queues[address]
-        logger.info('Client disconnected: %s', address)
+            logger.info('Client disconnected: %s', address)
 
     def launch(self):
         start_server = websockets.serve(self.handler, port=PORT)
