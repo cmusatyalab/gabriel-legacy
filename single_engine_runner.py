@@ -3,7 +3,6 @@ from multiprocessing import Process
 from multiprocessing import Pipe
 from threading import Thread
 from gabriel_server.client_comm import WebsocketServer
-from gabriel_server.client_comm import EngineServer
 from gabriel_server import gabriel_pb2
 
 
