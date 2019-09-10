@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='gabriel.proto',
   package='gabriel',
   syntax='proto3',
-  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\xc3\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x04type\x18\x02 \x01(\x0e\x32\x18.gabriel.FromClient.Type\x12\x1f\n\x06\x65ngine\x18\x03 \x01(\x0e\x32\x0f.gabriel.Engine\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12\r\n\x05style\x18\x05 \x01(\t\":\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\"?\n\x0c\x45ngineServer\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x13\n\x0b\x66rom_client\x18\x03 \x01(\x0c\"\xab\x03\n\nFromServer\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12*\n\x06status\x18\x02 \x01(\x0e\x32\x1a.gabriel.FromServer.Status\x12+\n\x07results\x18\x03 \x03(\x0b\x32\x1a.gabriel.FromServer.Result\x1a\xb7\x01\n\x06Result\x12\x33\n\x04type\x18\x01 \x01(\x0e\x32%.gabriel.FromServer.Result.ResultType\x12\x1f\n\x06\x65ngine\x18\x02 \x01(\x0e\x32\x0f.gabriel.Engine\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"F\n\nResultType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x08\n\x04TEXT\x10\x03\x12\r\n\tANIMATION\x10\x04\"x\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x12\"\n\x1eREQUESTED_ENGINE_NOT_AVAILABLE\x10\x04*\x17\n\x06\x45ngine\x12\r\n\tOPENRTIST\x10\x00\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
+  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\"\xc3\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12&\n\x04type\x18\x02 \x01(\x0e\x32\x18.gabriel.FromClient.Type\x12\x1f\n\x06\x65ngine\x18\x03 \x01(\x0e\x32\x0f.gabriel.Engine\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12\r\n\x05style\x18\x05 \x01(\t\":\n\x04Type\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\"D\n\x0c\x45ngineServer\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12\x18\n\x10serialized_proto\x18\x03 \x01(\x0c\"\xab\x03\n\nFromServer\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x04\x12*\n\x06status\x18\x02 \x01(\x0e\x32\x1a.gabriel.FromServer.Status\x12+\n\x07results\x18\x03 \x03(\x0b\x32\x1a.gabriel.FromServer.Result\x1a\xb7\x01\n\x06Result\x12\x33\n\x04type\x18\x01 \x01(\x0e\x32%.gabriel.FromServer.Result.ResultType\x12\x1f\n\x06\x65ngine\x18\x02 \x01(\x0e\x32\x0f.gabriel.Engine\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"F\n\nResultType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x08\n\x04TEXT\x10\x03\x12\r\n\tANIMATION\x10\x04\"x\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x01\x12\x0e\n\nQUEUE_FULL\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x12\"\n\x1eREQUESTED_ENGINE_NOT_AVAILABLE\x10\x04*\x17\n\x06\x45ngine\x12\r\n\tOPENRTIST\x10\x00\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -37,8 +37,8 @@ _ENGINE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=719,
-  serialized_end=742,
+  serialized_start=724,
+  serialized_end=747,
 )
 _sym_db.RegisterEnumDescriptor(_ENGINE)
 
@@ -105,8 +105,8 @@ _FROMSERVER_RESULT_RESULTTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=525,
-  serialized_end=595,
+  serialized_start=530,
+  serialized_end=600,
 )
 _sym_db.RegisterEnumDescriptor(_FROMSERVER_RESULT_RESULTTYPE)
 
@@ -139,8 +139,8 @@ _FROMSERVER_STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=597,
-  serialized_end=717,
+  serialized_start=602,
+  serialized_end=722,
 )
 _sym_db.RegisterEnumDescriptor(_FROMSERVER_STATUS)
 
@@ -227,7 +227,7 @@ _ENGINESERVER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='from_client', full_name='gabriel.EngineServer.from_client', index=2,
+      name='serialized_proto', full_name='gabriel.EngineServer.serialized_proto', index=2,
       number=3, type=12, cpp_type=9, label=1,
       has_default_value=False, default_value=_b(""),
       message_type=None, enum_type=None, containing_type=None,
@@ -246,7 +246,7 @@ _ENGINESERVER = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=224,
-  serialized_end=287,
+  serialized_end=292,
 )
 
 
@@ -291,8 +291,8 @@ _FROMSERVER_RESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=412,
-  serialized_end=595,
+  serialized_start=417,
+  serialized_end=600,
 )
 
 _FROMSERVER = _descriptor.Descriptor(
@@ -336,8 +336,8 @@ _FROMSERVER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=290,
-  serialized_end=717,
+  serialized_start=295,
+  serialized_end=722,
 )
 
 _FROMCLIENT.fields_by_name['type'].enum_type = _FROMCLIENT_TYPE
