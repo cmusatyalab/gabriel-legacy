@@ -22,9 +22,10 @@ def _run_engine(engine_setup, input_queue, conn):
     engine = engine_setup()
     logger.info('Cognitive engine started')
     while True:
-        input_proto_address = input_queue.get()
+        engine_server = gabriel_pb2.EngineServer()
+        engine_server.ParseFromString(input_queue.get())
         from_client = gabriel_pb2.FromClient()
-        from_client.ParseFromString(input_proto_address.proto)
+        from_client.ParseFromString(engine_server.serialized_proto)
 
         if from_client.engine == engine.proto_engine:
             from_server = engine.handle(from_client)
@@ -32,10 +33,9 @@ def _run_engine(engine_setup, input_queue, conn):
             from_server = _engine_not_available_message(
                 from_client.frame_id)
 
-        result_proto_address = ProtoAddress(
-            proto=from_server.SerializeToString(),
-            address=input_proto_address.address)
-        conn.send(result_proto_address)
+        engine_server.serialized_proto = (
+            from_server.SerializeToString())
+        conn.send(engine_server.SerializeToString())
 
 
 def _queue_shuttle(websocket_server, conn):
@@ -46,9 +46,12 @@ def _queue_shuttle(websocket_server, conn):
     running the event loop.'''
 
     while True:
-        result_proto_address = conn.recv()
+        engine_server = gabriel_pb2.EngineServer()
+        engine_server.ParseFromString(conn.recv())
+        address = (engine_server.host, engine_server.port)
+
         websocket_server.submit_result(
-            result_proto_address.proto, result_proto_address.address)
+            engine_server.serialized_proto, address)
 
 
 def run(engine_setup):

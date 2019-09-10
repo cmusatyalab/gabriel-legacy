@@ -4,7 +4,6 @@ import multiprocessing
 import queue
 from gabriel_server import gabriel_pb2
 import websockets
-from collections import namedtuple
 
 
 PORT = 9098
@@ -15,9 +14,6 @@ websockets_logger = logging.getLogger('websockets')
 
 # The entire payload will be printed if this is allowed to be DEBUG
 websockets_logger.setLevel(logging.INFO)
-
-
-ProtoAddress = namedtuple('ProtoAddress', ['proto', 'address'])
 
 
 class WebsocketServer:
@@ -43,10 +39,14 @@ class WebsocketServer:
         async for raw_input in websocket:
             logger.debug('Received input from %s', address)
             try:
+                engine_server = gabriel_pb2.EngineServer()
+                engine_server.host = address[0]
+                engine_server.port = address[1]
+                engine_server.serialized_proto = raw_input
+
                 # We cannot put the deserialized protobuf in a
                 # multiprocessing.Queue because it cannot be pickled
-                proto_address = ProtoAddress(proto=raw_input, address=address)
-                self.input_queue.put_nowait(proto_address)
+                self.input_queue.put_nowait(engine_server.SerializeToString())
             except queue.Full:
                 from_client = gabriel_pb2.FromClient()
                 from_client.ParseFromString(raw_input)
