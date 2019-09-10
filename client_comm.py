@@ -4,9 +4,12 @@ import multiprocessing
 import queue
 from gabriel_server import gabriel_pb2
 import websockets
+from types import SimpleNamespace
 
 
 PORT = 9098
+NUM_TOKENS = 2
+INPUT_QUEUE_MAXSIZE = 2
 
 
 logger = logging.getLogger(__name__)
@@ -17,13 +20,14 @@ websockets_logger.setLevel(logging.INFO)
 
 
 class WebsocketServer:
-    def __init__(self, input_queue_maxsize=1):
+    def __init__(self, input_queue_maxsize=INPUT_QUEUE_MAXSIZE,
+                 num_tokens=NUM_TOKENS):
 
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
 
-        self.result_queues = {}
-
+        self.num_tokens = num_tokens
+        self.clients = {}
         self.event_loop = asyncio.get_event_loop()
 
     async def send_queue_full_message(self, websocket, frame_id):
@@ -53,7 +57,7 @@ class WebsocketServer:
                 await self.send_queue_full_message(
                     websocket, from_client.frame_id)
 
-    async def producer_handler(self, websocket, result_queue):
+    async def producer_handler(self, websocket, client):
         address = websocket.remote_address
 
         while True:
@@ -67,20 +71,24 @@ class WebsocketServer:
 
         # asyncio.Queue does not block the event loop
         result_queue = asyncio.Queue()
-        self.result_queues[address] = result_queue
+
+        client = SimpleNamespace(
+            result_queue=result_queue,
+            tokens=self.num_tokens)
+        self.clients[address] = client
 
         try:
             consumer_task = asyncio.ensure_future(
-                self.consumer_handler(websocket))
+                self.consumer_handler(websocket, client))
             producer_task = asyncio.ensure_future(
-                self.producer_handler(websocket, result_queue))
+                self.producer_handler(websocket, client))
             done, pending = await asyncio.wait(
                 [consumer_task, producer_task],
                 return_when=asyncio.FIRST_COMPLETED)
             for task in pending:
                 task.cancel()
         finally:
-            del self.result_queues[address]
+            del self.clients[address]
             logger.info('Client disconnected: %s', address)
 
     def launch(self):
@@ -89,7 +97,7 @@ class WebsocketServer:
         self.event_loop.run_forever()
 
     async def queue_result(self, result, address):
-        result_queue = self.result_queues.get(address)
+        result_queue = self.clients.get(address).result_queue
         if result_queue is None:
             logger.warning('Result for nonexistant address %s', address)
         else:
