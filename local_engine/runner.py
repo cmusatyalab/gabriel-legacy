@@ -9,7 +9,7 @@ from gabriel_server import gabriel_pb2
 logger = logging.getLogger(__name__)
 
 
-def _run_engine(engine_setup, engine_name, input_queue, conn):
+def _run_engine(engine_setup, input_queue, conn):
     engine = engine_setup()
     logger.info('Cognitive engine started')
     while True:
@@ -43,6 +43,7 @@ def _queue_shuttle(websocket_server, conn):
 def run(engine_setup, engine_name):
     '''This should never return'''
     websocket_server = WebsocketServer()
+    websocket_server.available_engines.add(engine_name)
 
     parent_conn, child_conn = Pipe()
     shuttle_thread = Thread(
@@ -51,8 +52,7 @@ def run(engine_setup, engine_name):
     shuttle_thread.start()
     engine_process = Process(
         target=_run_engine,
-        args=(engine_setup, engine_name, websocket_server.input_queue,
-              child_conn))
+        args=(engine_setup, websocket_server.input_queue, child_conn))
     engine_process.start()
 
     websocket_server.launch()
