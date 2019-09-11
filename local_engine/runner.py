@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _engine_not_available_message(frame_id):
-    from_server = gabriel_p2.FromServer()
+    from_server = gabriel_pb2.FromServer()
     from_server.frame_id = frame_id
     from_server.status = (
         gabriel_pb2.FromServer.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
