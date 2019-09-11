@@ -16,8 +16,10 @@ def _engine_comm(websocket_server, engine_addr=ENGINE_ADDR):
     socket = context.socket(zmq.REP)
     socket.bind(engine_addr)
 
+    logger.info('Waiting for engine')
+
     engine_name = socket.recv_string()
-    logging.info('Connected to %s engine', engine_name)
+    logger.info('Connected to %s engine', engine_name)
     websocket_server.register_engine(engine_name)
 
     try:

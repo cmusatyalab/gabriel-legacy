@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 def run(engine_setup, engine_name, addr):
     engine = engine_setup()
     logger.info('Cognitive engine started')
+
+    context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect(addr)
 
