@@ -66,7 +66,7 @@ class WebsocketServer:
         address = websocket.remote_address
 
         while True:
-            from_server_serialized = await result_queue.get()
+            from_server_serialized = await client.result_queue.get()
 
             client.tokens += 1
 
