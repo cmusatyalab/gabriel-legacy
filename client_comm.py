@@ -24,31 +24,32 @@ async def _send(websocket, to_client, tokens):
     await websocket.send(to_client.SerializeToString())
 
 
-async def _send_error(websocket, raw_input, tokens, status):
-    from_client = gabriel_pb2.FromClient()
-    from_client.ParseFromString(raw_input)
-
+async def _send_error(websocket, from_client, tokens, status):
     to_client = gabriel_pb2.ToClient()
     to_client.result_wrapper.frame_id = from_client.frame_id
     to_client.result_wrapper.status = status
     await _send(websocket, to_client, tokens)
 
 
-async def _send_queue_full_message(websocket, raw_input, tokens):
+async def _send_queue_full_message(websocket, from_client, tokens):
     logger.warn('Queue full')
-    await _send_error(websocket, raw_input, tokens,
+    await _send_error(websocket, from_client, tokens,
                       gabriel_pb2.ResultWrapper.Status.QUEUE_FULL)
 
 
 async def _send_no_tokens_message(websocket, raw_input, tokens):
     logger.error('Client %s sending without tokens', websocket.remote_address)
-    await _send_error(websocket, raw_input, tokens,
+
+    from_client = gabriel_pb2.FromClient()
+    from_client.ParseFromString(raw_input)
+    
+    await _send_error(websocket, from_client, tokens,
                       gabriel_pb2.ResultWrapper.Status.NO_TOKENS)
 
-async def _send_engine_not_available_message(websocket, raw_input, tokens):
+async def _send_engine_not_available_message(websocket, from_client, tokens):
     logger.warn('Engine Not Available')
     await _send_error(
-        websocket, raw_input, tokens,
+        websocket, from_client, tokens,
         gabriel_pb2.ResultWrapper.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
 
 class WebsocketServer:
@@ -65,7 +66,7 @@ class WebsocketServer:
 
     async def _handle_input(self, websocket, client, to_from_engine):
         try:
-            if to_from_engine.from_client.engine_name in self.available_engines:
+            if to_from_engine.from_client.engine_name in self._available_engines:
                 client.tokens -= 1
 
                 # We cannot put the deserialized protobuf in a
@@ -74,12 +75,12 @@ class WebsocketServer:
                     to_from_engine.SerializeToString())
             else:
                 await _send_engine_not_available_message(
-                    websocket, raw_input, client.tokens)
+                    websocket, to_from_engine.from_client, client.tokens)
         except queue.Full:
             client.tokens += 1
 
             await _send_queue_full_message(
-                websocket, raw_input, client.tokens)
+                websocket, to_from_engine.from_client, client.tokens)
 
 
     async def consumer_handler(self, websocket, client):
@@ -131,8 +132,8 @@ class WebsocketServer:
         self.clients[address] = client
 
         # Tell client how many tokens it has
-        from_client = gabriel_pb2.FromClient()
-        await _send(websocket, to_client, client.tokens):
+        to_client = gabriel_pb2.ToClient()
+        await _send(websocket, to_client, client.tokens)
 
         try:
             consumer_task = asyncio.ensure_future(
@@ -169,18 +170,18 @@ class WebsocketServer:
         asyncio.run_coroutine_threadsafe(
             self.queue_result(result, address), self.event_loop)
 
-    def register_engine(engine_name):
+    def register_engine(self, engine_name):
         '''Add a cognitive engine to self._available_engines.
 
         Done on event loop because set() is not thread safe.'''
 
-        asyncio.run_coroutine_threadsafe(
-            self._available_engines.add(engine_name), self.event_loop)
+        self.event_loop.call_soon_threadsafe(
+            self._available_engines.add, engine_name)
 
-    def unregister_engine(engine_name):
+    def unregister_engine(self, engine_name):
         '''Remove a cognitive engine from self._available_engines.
 
         Done on event loop because set() is not thread safe.'''
 
-        asyncio.run_coroutine_threadsafe(
-            self._available_engines.remove(engine_name), self.event_loop)
+        self.event_loop.call_soon_threadsafe(
+            self._available_engines.remove, engine_name)
