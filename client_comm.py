@@ -63,13 +63,8 @@ class WebsocketServer:
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
 
-    async def _handle_input(self, websocket, client, raw_input):
+    async def _handle_input(self, websocket, client, to_from_engine):
         try:
-            to_from_engine = gabriel_pb2.ToFromEngine()
-            to_from_engine.host = address[0]
-            to_from_engine.port = address[1]
-            to_from_engine.from_client.ParseFromString(raw_input)
-
             if to_from_engine.from_client.engine_name in self.available_engines:
                 client.tokens -= 1
 
@@ -94,7 +89,12 @@ class WebsocketServer:
             async for raw_input in websocket:
                 logger.debug('Received input from %s', address)
                 if client.tokens > 0:
-                    await self._handle_input(websocket, client, raw_input)
+                    to_from_engine = gabriel_pb2.ToFromEngine()
+                    to_from_engine.host = address[0]
+                    to_from_engine.port = address[1]
+                    to_from_engine.from_client.ParseFromString(raw_input)
+
+                    await self._handle_input(websocket, client, to_from_engine)
                 else:
                     await _send_no_tokens_message(
                         websocket, raw_input, client.tokens)
