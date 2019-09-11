@@ -30,14 +30,15 @@ class WebsocketServer:
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
 
-    async def send_queue_full_message(self, websocket, frame_id):
+    async def send_queue_full_message(self, websocket, frame_id, tokens):
         logger.warn('Queue full')
         from_server = gabriel_pb2.FromServer()
         from_server.frame_id = frame_id
         from_server.status = gabriel_pb2.FromServer.Status.QUEUE_FULL
+        from_server.num_tokens = tokens
         await websocket.send(from_server.SerializeToString())
 
-    async def consumer_handler(self, websocket):
+    async def consumer_handler(self, websocket, client):
         address = websocket.remote_address
 
         async for raw_input in websocket:
@@ -48,22 +49,33 @@ class WebsocketServer:
                 engine_server.port = address[1]
                 engine_server.serialized_proto = raw_input
 
+                client.tokens -= 1
+
                 # We cannot put the deserialized protobuf in a
                 # multiprocessing.Queue because it cannot be pickled
                 self.input_queue.put_nowait(engine_server.SerializeToString())
             except queue.Full:
+                client.tokens += 1
+
                 from_client = gabriel_pb2.FromClient()
                 from_client.ParseFromString(raw_input)
                 await self.send_queue_full_message(
-                    websocket, from_client.frame_id)
+                    websocket, from_client.frame_id, client.tokens)
 
     async def producer_handler(self, websocket, client):
         address = websocket.remote_address
 
         while True:
-            output = await result_queue.get()
+            from_server_serialized = await result_queue.get()
+
+            client.tokens += 1
+
+            from_server = gabriel_pb2.FromServer()
+            from_server.ParseFromString(from_server_serialized)
+            from_server.num_tokens = client.tokens
+
             logger.debug('Sending to %s', address)
-            await websocket.send(output)
+            await websocket.send(from_server.SerializeToString())
 
     async def handler(self, websocket, _):
         address = websocket.remote_address

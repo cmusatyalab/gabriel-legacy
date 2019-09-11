@@ -22,9 +22,8 @@ def engine_not_available_message(frame_id):
 class Engine(ABC):
     @property
     @abstractmethod
-    def proto_engine(self):
-        '''The gabriel_pb2.Engine value correspoinding to this cognitive
-        engine'''
+    def name(self):
+        '''The name of the service that this engine runs (ex: openrtist)'''
         pass
 
     @abstractmethod
