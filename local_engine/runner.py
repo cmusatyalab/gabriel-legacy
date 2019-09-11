@@ -16,10 +16,10 @@ def _run_engine(engine_setup, input_queue, conn):
         to_from_engine = gabriel_pb2.ToFromEngine()
         to_from_engine.ParseFromString(input_queue.get())
 
-        to_client = engine.handle(to_from_engine.from_client)
+        content = engine.handle(to_from_engine.from_client)
 
         # This cuases to_from_engine.from_client to be overwritten
-        to_from_engine.to_client.CopyFrom(to_client)
+        to_from_engine.content.CopyFrom(content)
 
         conn.send(to_from_engine.SerializeToString())
 

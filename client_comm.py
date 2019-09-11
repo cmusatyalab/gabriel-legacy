@@ -49,7 +49,7 @@ async def _send_engine_not_available_message(websocket, raw_input, tokens):
     logger.warn('Engine Not Available')
     await _send_error(
         websocket, raw_input, tokens,
-        gabriel_pb2.FromServer.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
+        gabriel_pb2.ToClient.Content.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
 
 class WebsocketServer:
     def __init__(self, input_queue_maxsize=INPUT_QUEUE_MAXSIZE,
@@ -75,7 +75,7 @@ class WebsocketServer:
                     to_from_engine.port = address[1]
                     to_from_engine.from_client.ParseFromString(raw_input)
 
-                    if to_from_engine.from_client.engine_name in self.clients:
+                    if to_from_engine.from_client.engine_name in self.available_engines:
                         client.tokens -= 1
 
                         # We cannot put the deserialized protobuf in a
