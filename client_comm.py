@@ -58,7 +58,7 @@ class WebsocketServer:
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
 
-        self.available_engines = set()
+        self._available_engines = set()
         self.num_tokens = num_tokens
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
@@ -130,6 +130,10 @@ class WebsocketServer:
             tokens=self.num_tokens)
         self.clients[address] = client
 
+        # Tell client how many tokens it has
+        from_client = gabriel_pb2.FromClient()
+        await _send(websocket, to_client, client.tokens):
+
         try:
             consumer_task = asyncio.ensure_future(
                 self.consumer_handler(websocket, client))
@@ -163,5 +167,20 @@ class WebsocketServer:
         the same process as the event loop.'''
 
         asyncio.run_coroutine_threadsafe(
-            self.queue_result(result, address),
-            self.event_loop)
+            self.queue_result(result, address), self.event_loop)
+
+    def register_engine(engine_name):
+        '''Add a cognitive engine to self._available_engines.
+
+        Done on event loop because set() is not thread safe.'''
+
+        asyncio.run_coroutine_threadsafe(
+            self._available_engines.add(engine_name), self.event_loop)
+
+    def unregister_engine(engine_name):
+        '''Remove a cognitive engine from self._available_engines.
+
+        Done on event loop because set() is not thread safe.'''
+
+        asyncio.run_coroutine_threadsafe(
+            self._available_engines.remove(engine_name), self.event_loop)

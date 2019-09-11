@@ -43,7 +43,7 @@ def _queue_shuttle(websocket_server, conn):
 def run(engine_setup, engine_name):
     '''This should never return'''
     websocket_server = WebsocketServer()
-    websocket_server.available_engines.add(engine_name)
+    websocket_server.register_engine(engine_name)
 
     parent_conn, child_conn = Pipe()
     shuttle_thread = Thread(

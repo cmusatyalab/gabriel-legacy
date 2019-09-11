@@ -2,7 +2,6 @@ import logging
 from threading import Thread
 from gabriel_server.client_comm import WebsocketServer
 from gabriel_server import gabriel_pb2
-from gabriel_server import cognitive_engine
 import zmq
 
 
@@ -19,22 +18,23 @@ def _engine_comm(websocket_server, engine_addr=ENGINE_ADDR):
 
     engine_name = socket.recv_string()
     logging.info('Connected to %s engine', engine_name)
+    websocket_server.register_engine(engine_name)
 
-    while True:
-        engine_server = gabriel_pb2.EngineServer()
-        engine_server.ParseFromString(websocket_server.input_queue.get())
-        from_client = gabriel_pb2.FromClient()
-        from_client.ParseFromString(engine_server.serialized_proto)
+    try:
+        while True:
+            to_from_engine = gabriel_pb2.ToFromEngine()
+            to_from_engine.ParseFromString(websocket_server.input_queue.get())
 
-        if from_client.engine == engine_name:
-            socket.send(engine_server.serialized_proto)
-            serialized_result = socket.recv()
-        else:
-            serialized_result = cognitive_engine.engine_not_available_message(
-                from_client.frame_id).SerializeToString()
+            socket.send(to_from_engine.from_client.SerializeToString())
+            serialized_result_wrapper = socket.recv()
 
-        address = (engine_server.host, engine_server.port)
-        websocket_server.submit_result(serialized_result, address)
+            address = (to_from_engine.host, to_from_engine.port)
+            result_wrapper = gabriel_pb2.ResultWrapper()
+            result_wrapper.ParseFromString(serialized_result_wrapper)
+            websocket_server.submit_result(result_wrapper, address)
+    finally:
+        logger.info('Server stopping')
+        websocket_server.unregister_engine(engine_name)
 
 
 def run():
