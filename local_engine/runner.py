@@ -9,32 +9,19 @@ from gabriel_server import gabriel_pb2
 logger = logging.getLogger(__name__)
 
 
-def _engine_not_available_message(frame_id):
-    from_server = gabriel_pb2.FromServer()
-    from_server.frame_id = frame_id
-    from_server.status = (
-        gabriel_pb2.FromServer.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
-    return from_server
-
-
-def _run_engine(engine_setup, input_queue, conn):
+def _run_engine(engine_setup, engine_name, input_queue, conn):
     engine = engine_setup()
     logger.info('Cognitive engine started')
     while True:
-        engine_server = gabriel_pb2.EngineServer()
-        engine_server.ParseFromString(input_queue.get())
-        from_client = gabriel_pb2.FromClient()
-        from_client.ParseFromString(engine_server.serialized_proto)
+        to_from_engine = gabriel_pb2.ToFromEngine()
+        to_from_engine.ParseFromString(input_queue.get())
 
-        if from_client.engine_name == engine.name:
-            from_server = engine.handle(from_client)
-        else:
-            from_server = _engine_not_available_message(
-                from_client.frame_id)
+        to_client = engine.handle(to_from_engine.from_client)
 
-        engine_server.serialized_proto = (
-            from_server.SerializeToString())
-        conn.send(engine_server.SerializeToString())
+        # This cuases to_from_engine.from_client to be overwritten
+        to_from_engine.to_client.CopyFrom(to_client)
+
+        conn.send(to_from_engine.SerializeToString())
 
 
 def _queue_shuttle(websocket_server, conn):
@@ -45,15 +32,15 @@ def _queue_shuttle(websocket_server, conn):
     running the event loop.'''
 
     while True:
-        engine_server = gabriel_pb2.EngineServer()
-        engine_server.ParseFromString(conn.recv())
-        address = (engine_server.host, engine_server.port)
+        to_from_engine = gabriel_pb2.ToFromEngine()
+        to_from_engine.ParseFromString(conn.recv())
+        address = (to_from_engine.host, to_from_engine.port)
 
         websocket_server.submit_result(
-            engine_server.serialized_proto, address)
+            to_from_engine.content, address)
 
 
-def run(engine_setup):
+def run(engine_setup, engine_name):
     '''This should never return'''
     websocket_server = WebsocketServer()
 
@@ -64,7 +51,8 @@ def run(engine_setup):
     shuttle_thread.start()
     engine_process = Process(
         target=_run_engine,
-        args=(engine_setup, websocket_server.input_queue, child_conn))
+        args=(engine_setup, engine_name, websocket_server.input_queue,
+              child_conn))
     engine_process.start()
 
     websocket_server.launch()

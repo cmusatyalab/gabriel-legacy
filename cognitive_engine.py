@@ -3,29 +3,32 @@ from abc import abstractmethod
 from gabriel_server import gabriel_pb2
 
 
-def wrong_input_format_message(frame_id):
-    from_server = gabriel_pb2.FromServer()
-    from_server.frame_id = frame_id
-    from_server.status = gabriel_pb2.FromServer.Status.WRONG_INPUT_FORMAT
+def _status_message(frame_id, status):
+    content = gabriel_pb2.ToClient.Content()
+    content.frame_id = frame_id
+    content.status = status
 
-    return from_server
+    return content
+
+
+def wrong_input_format_message(frame_id):
+    return _status_message(
+        frame_id, gabriel_pb2.ToClient.Content.Status.WRONG_INPUT_FORMAT)
 
 
 def engine_not_available_message(frame_id):
-    from_server = gabriel_p2.FromServer()
-    from_server.frame_id = frame_id
-    from_server.status = (
-        gabriel_pb2.FromServer.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
-    return from_server
+    return _status_message(
+        frame_id,
+        gabriel_pb2.ToClient.Content.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
+
+
+def unpack_engine_fields(engine_fields_class, from_client):
+    engine_fields = engine_fields_class()
+    from_client.engine_fields.Unpack(engine_fields)
+    return engine_fields
 
 
 class Engine(ABC):
-    @property
-    @abstractmethod
-    def name(self):
-        '''The name of the service that this engine runs (ex: openrtist)'''
-        pass
-
     @abstractmethod
     def handle(self, from_client):
         pass

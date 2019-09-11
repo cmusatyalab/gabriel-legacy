@@ -19,6 +19,38 @@ websockets_logger = logging.getLogger('websockets')
 websockets_logger.setLevel(logging.INFO)
 
 
+async def _send(websocket, to_client, tokens):
+    to_client.num_tokens = tokens
+    await websocket.send(to_client.SerializeToString())
+
+
+async def _send_error(websocket, raw_input, tokens, status):
+    from_client = gabriel_pb2.FromClient()
+    from_client.ParseFromString(raw_input)
+
+    to_client = gabriel_pb2.ToClient()
+    to_client.content.frame_id = from_client.frame_id
+    to_client.content.status = status
+    await _send(websocket, to_client, tokens)
+
+
+async def _send_queue_full_message(websocket, raw_input, tokens):
+    logger.warn('Queue full')
+    await _send_error(websocket, raw_input, tokens,
+                      gabriel_pb2.ToClient.Content.Status.QUEUE_FULL)
+
+
+async def _send_no_tokens_message(websocket, raw_input, tokens):
+    logger.error('Client %s sending without tokens', websocket.remote_address)
+    await _send_error(websocket, raw_input, tokens,
+                      gabriel_pb2.ToClient.Content.Status.NO_TOKENS)
+
+async def _send_engine_not_available_message(websocket, raw_input, tokens):
+    logger.warn('Engine Not Available')
+    await _send_error(
+        websocket, raw_input, tokens,
+        gabriel_pb2.FromServer.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
+
 class WebsocketServer:
     def __init__(self, input_queue_maxsize=INPUT_QUEUE_MAXSIZE,
                  num_tokens=NUM_TOKENS):
@@ -26,56 +58,55 @@ class WebsocketServer:
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
 
+        self.available_engines = set()
         self.num_tokens = num_tokens
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
-
-    async def send_queue_full_message(self, websocket, frame_id, tokens):
-        logger.warn('Queue full')
-        from_server = gabriel_pb2.FromServer()
-        from_server.frame_id = frame_id
-        from_server.status = gabriel_pb2.FromServer.Status.QUEUE_FULL
-        from_server.num_tokens = tokens
-        await websocket.send(from_server.SerializeToString())
 
     async def consumer_handler(self, websocket, client):
         address = websocket.remote_address
 
         async for raw_input in websocket:
             logger.debug('Received input from %s', address)
-            try:
-                engine_server = gabriel_pb2.EngineServer()
-                engine_server.host = address[0]
-                engine_server.port = address[1]
-                engine_server.serialized_proto = raw_input
+            if client.tokens > 0:
+                try:
+                    to_from_engine = gabriel_pb2.ToFromEngine()
+                    to_from_engine.host = address[0]
+                    to_from_engine.port = address[1]
+                    to_from_engine.from_client.ParseFromString(raw_input)
 
-                client.tokens -= 1
+                    if to_from_engine.from_client.engine_name in self.clients:
+                        client.tokens -= 1
 
-                # We cannot put the deserialized protobuf in a
-                # multiprocessing.Queue because it cannot be pickled
-                self.input_queue.put_nowait(engine_server.SerializeToString())
-            except queue.Full:
-                client.tokens += 1
+                        # We cannot put the deserialized protobuf in a
+                        # multiprocessing.Queue because it cannot be pickled
+                        self.input_queue.put_nowait(
+                            to_from_engine.SerializeToString())
+                    else:
+                        await _send_engine_not_available_message(
+                            websocket, raw_input, client.tokens)
+                except queue.Full:
+                    client.tokens += 1
 
-                from_client = gabriel_pb2.FromClient()
-                from_client.ParseFromString(raw_input)
-                await self.send_queue_full_message(
-                    websocket, from_client.frame_id, client.tokens)
+                    await _send_queue_full_message(
+                        websocket, raw_input, client.tokens)
+            else:
+                await _send_no_tokens_message(
+                    websocket, raw_input, client.tokens)
 
     async def producer_handler(self, websocket, client):
         address = websocket.remote_address
 
         while True:
-            from_server_serialized = await client.result_queue.get()
+            content = await client.result_queue.get()
 
             client.tokens += 1
 
-            from_server = gabriel_pb2.FromServer()
-            from_server.ParseFromString(from_server_serialized)
-            from_server.num_tokens = client.tokens
+            to_client = gabriel_pb2.ToClient()
+            to_client.content.CopyFrom(content)
 
             logger.debug('Sending to %s', address)
-            await websocket.send(from_server.SerializeToString())
+            await _send(websocket, to_client, client.tokens)
 
     async def handler(self, websocket, _):
         address = websocket.remote_address
