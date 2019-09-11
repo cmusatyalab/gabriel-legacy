@@ -16,10 +16,10 @@ def _run_engine(engine_setup, input_queue, conn):
         to_from_engine = gabriel_pb2.ToFromEngine()
         to_from_engine.ParseFromString(input_queue.get())
 
-        content = engine.handle(to_from_engine.from_client)
+        result_wrapper = engine.handle(to_from_engine.from_client)
 
         # This cuases to_from_engine.from_client to be overwritten
-        to_from_engine.content.CopyFrom(content)
+        to_from_engine.result_wrapper.CopyFrom(result_wrapper)
 
         conn.send(to_from_engine.SerializeToString())
 
@@ -37,7 +37,7 @@ def _queue_shuttle(websocket_server, conn):
         address = (to_from_engine.host, to_from_engine.port)
 
         websocket_server.submit_result(
-            to_from_engine.content, address)
+            to_from_engine.result_wrapper, address)
 
 
 def run(engine_setup, engine_name):

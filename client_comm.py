@@ -29,27 +29,27 @@ async def _send_error(websocket, raw_input, tokens, status):
     from_client.ParseFromString(raw_input)
 
     to_client = gabriel_pb2.ToClient()
-    to_client.content.frame_id = from_client.frame_id
-    to_client.content.status = status
+    to_client.result_wrapper.frame_id = from_client.frame_id
+    to_client.result_wrapper.status = status
     await _send(websocket, to_client, tokens)
 
 
 async def _send_queue_full_message(websocket, raw_input, tokens):
     logger.warn('Queue full')
     await _send_error(websocket, raw_input, tokens,
-                      gabriel_pb2.ToClient.Content.Status.QUEUE_FULL)
+                      gabriel_pb2.ResultWrapper.Status.QUEUE_FULL)
 
 
 async def _send_no_tokens_message(websocket, raw_input, tokens):
     logger.error('Client %s sending without tokens', websocket.remote_address)
     await _send_error(websocket, raw_input, tokens,
-                      gabriel_pb2.ToClient.Content.Status.NO_TOKENS)
+                      gabriel_pb2.ResultWrapper.Status.NO_TOKENS)
 
 async def _send_engine_not_available_message(websocket, raw_input, tokens):
     logger.warn('Engine Not Available')
     await _send_error(
         websocket, raw_input, tokens,
-        gabriel_pb2.ToClient.Content.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
+        gabriel_pb2.ResultWrapper.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
 
 class WebsocketServer:
     def __init__(self, input_queue_maxsize=INPUT_QUEUE_MAXSIZE,
@@ -98,12 +98,12 @@ class WebsocketServer:
         address = websocket.remote_address
 
         while True:
-            content = await client.result_queue.get()
+            result_wrapper = await client.result_queue.get()
 
             client.tokens += 1
 
             to_client = gabriel_pb2.ToClient()
-            to_client.content.CopyFrom(content)
+            to_client.result_wrapper.CopyFrom(result_wrapper)
 
             logger.debug('Sending to %s', address)
             await _send(websocket, to_client, client.tokens)
