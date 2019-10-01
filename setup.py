@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="gabriel-server",
-    version="0.0.2",
+    version="0.0.3",
     author="Roger Iyengar",
     author_email="ri@rogeriyengar.com",
     description="Server for Wearable Cognitive Assistance Applications",
@@ -14,6 +14,7 @@ setuptools.setup(
     url="https://github.com/cmusatyalab/gabriel-server-common",
     packages=setuptools.find_packages("src"),
     package_dir={"": "src"},
+    license="Apache",
     classifiers=[
         "Programming Language :: Python :: 3.6",
         "License :: OSI Approved :: Apache Software License",
