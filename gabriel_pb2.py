@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='gabriel.proto',
   package='gabriel',
   syntax='proto3',
-  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\x1a\x19google/protobuf/any.proto\"\x9d\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x03\x12*\n\x0cpayload_type\x18\x02 \x01(\x0e\x32\x14.gabriel.PayloadType\x12\x13\n\x0b\x65ngine_name\x18\x03 \x01(\t\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12+\n\rengine_fields\x18\x05 \x01(\x0b\x32\x14.google.protobuf.Any\"\xfb\x02\n\rResultWrapper\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x03\x12-\n\x06status\x18\x02 \x01(\x0e\x32\x1d.gabriel.ResultWrapper.Status\x12.\n\x07results\x18\x04 \x03(\x0b\x32\x1d.gabriel.ResultWrapper.Result\x1aZ\n\x06Result\x12*\n\x0cpayload_type\x18\x01 \x01(\x0e\x32\x14.gabriel.PayloadType\x12\x13\n\x0b\x65ngine_name\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"\x9c\x01\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x13\n\x0fWELCOME_MESSAGE\x10\x01\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x12\"\n\x1eREQUESTED_ENGINE_NOT_AVAILABLE\x10\x04\x12\r\n\tNO_TOKENS\x10\x05\x12\x0e\n\nQUEUE_FULL\x10\x06\"N\n\x08ToClient\x12.\n\x0eresult_wrapper\x18\x01 \x01(\x0b\x32\x16.gabriel.ResultWrapper\x12\x12\n\nnum_tokens\x18\x02 \x01(\x05\"\x9a\x01\n\x0cToFromEngine\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12*\n\x0b\x66rom_client\x18\x03 \x01(\x0b\x32\x13.gabriel.FromClientH\x00\x12\x30\n\x0eresult_wrapper\x18\x04 \x01(\x0b\x32\x16.gabriel.ResultWrapperH\x00\x42\x10\n\x0e\x63lient_message*Z\n\x0bPayloadType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\x12\x08\n\x04TEXT\x10\x04\x12\r\n\tANIMATION\x10\x05\x42$\n\x1a\x65\x64u.cmu.cs.gabriel.networkB\x06Protosb\x06proto3')
+  serialized_pb=_b('\n\rgabriel.proto\x12\x07gabriel\x1a\x19google/protobuf/any.proto\"\x9d\x01\n\nFromClient\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x03\x12*\n\x0cpayload_type\x18\x02 \x01(\x0e\x32\x14.gabriel.PayloadType\x12\x13\n\x0b\x65ngine_name\x18\x03 \x01(\t\x12\x0f\n\x07payload\x18\x04 \x01(\x0c\x12+\n\rengine_fields\x18\x05 \x01(\x0b\x32\x14.google.protobuf.Any\"\xba\x03\n\rResultWrapper\x12\x10\n\x08\x66rame_id\x18\x01 \x01(\x03\x12-\n\x06status\x18\x02 \x01(\x0e\x32\x1d.gabriel.ResultWrapper.Status\x12.\n\x07results\x18\x03 \x03(\x0b\x32\x1d.gabriel.ResultWrapper.Result\x12+\n\rengine_fields\x18\x04 \x01(\x0b\x32\x14.google.protobuf.Any\x1aZ\n\x06Result\x12*\n\x0cpayload_type\x18\x01 \x01(\x0e\x32\x14.gabriel.PayloadType\x12\x13\n\x0b\x65ngine_name\x18\x02 \x01(\t\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"\xae\x01\n\x06Status\x12\x0b\n\x07SUCCESS\x10\x00\x12\x13\n\x0fWELCOME_MESSAGE\x10\x01\x12\x15\n\x11UNSPECIFIED_ERROR\x10\x02\x12\x16\n\x12WRONG_INPUT_FORMAT\x10\x03\x12\"\n\x1eREQUESTED_ENGINE_NOT_AVAILABLE\x10\x04\x12\r\n\tNO_TOKENS\x10\x05\x12\x0e\n\nQUEUE_FULL\x10\x06\x12\x10\n\x0c\x45NGINE_ERROR\x10\x07\"N\n\x08ToClient\x12.\n\x0eresult_wrapper\x18\x01 \x01(\x0b\x32\x16.gabriel.ResultWrapper\x12\x12\n\nnum_tokens\x18\x02 \x01(\x05\"\x9a\x01\n\x0cToFromEngine\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0c\n\x04port\x18\x02 \x01(\x05\x12*\n\x0b\x66rom_client\x18\x03 \x01(\x0b\x32\x13.gabriel.FromClientH\x00\x12\x30\n\x0eresult_wrapper\x18\x04 \x01(\x0b\x32\x16.gabriel.ResultWrapperH\x00\x42\x10\n\x0e\x63lient_message*Z\n\x0bPayloadType\x12\t\n\x05IMAGE\x10\x00\x12\t\n\x05VIDEO\x10\x01\x12\t\n\x05\x41UDIO\x10\x02\x12\x11\n\rACCELEROMETER\x10\x03\x12\x08\n\x04TEXT\x10\x04\x12\r\n\tANIMATION\x10\x05\x42\"\n\x18\x65\x64u.cmu.cs.gabrielcleintB\x06Protosb\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_any__pb2.DESCRIPTOR,])
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
@@ -59,8 +59,8 @@ _PAYLOADTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   options=None,
-  serialized_start=832,
-  serialized_end=922,
+  serialized_start=895,
+  serialized_end=985,
 )
 _sym_db.RegisterEnumDescriptor(_PAYLOADTYPE)
 
@@ -107,11 +107,15 @@ _RESULTWRAPPER_STATUS = _descriptor.EnumDescriptor(
       name='QUEUE_FULL', index=6, number=6,
       options=None,
       type=None),
+    _descriptor.EnumValueDescriptor(
+      name='ENGINE_ERROR', index=7, number=7,
+      options=None,
+      type=None),
   ],
   containing_type=None,
   options=None,
-  serialized_start=437,
-  serialized_end=593,
+  serialized_start=482,
+  serialized_end=656,
 )
 _sym_db.RegisterEnumDescriptor(_RESULTWRAPPER_STATUS)
 
@@ -215,8 +219,8 @@ _RESULTWRAPPER_RESULT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=344,
-  serialized_end=434,
+  serialized_start=389,
+  serialized_end=479,
 )
 
 _RESULTWRAPPER = _descriptor.Descriptor(
@@ -242,8 +246,15 @@ _RESULTWRAPPER = _descriptor.Descriptor(
       options=None),
     _descriptor.FieldDescriptor(
       name='results', full_name='gabriel.ResultWrapper.results', index=2,
-      number=4, type=11, cpp_type=10, label=3,
+      number=3, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='engine_fields', full_name='gabriel.ResultWrapper.engine_fields', index=3,
+      number=4, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -261,7 +272,7 @@ _RESULTWRAPPER = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=214,
-  serialized_end=593,
+  serialized_end=656,
 )
 
 
@@ -298,8 +309,8 @@ _TOCLIENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=595,
-  serialized_end=673,
+  serialized_start=658,
+  serialized_end=736,
 )
 
 
@@ -353,8 +364,8 @@ _TOFROMENGINE = _descriptor.Descriptor(
       name='client_message', full_name='gabriel.ToFromEngine.client_message',
       index=0, containing_type=None, fields=[]),
   ],
-  serialized_start=676,
-  serialized_end=830,
+  serialized_start=739,
+  serialized_end=893,
 )
 
 _FROMCLIENT.fields_by_name['payload_type'].enum_type = _PAYLOADTYPE
@@ -363,6 +374,7 @@ _RESULTWRAPPER_RESULT.fields_by_name['payload_type'].enum_type = _PAYLOADTYPE
 _RESULTWRAPPER_RESULT.containing_type = _RESULTWRAPPER
 _RESULTWRAPPER.fields_by_name['status'].enum_type = _RESULTWRAPPER_STATUS
 _RESULTWRAPPER.fields_by_name['results'].message_type = _RESULTWRAPPER_RESULT
+_RESULTWRAPPER.fields_by_name['engine_fields'].message_type = google_dot_protobuf_dot_any__pb2._ANY
 _RESULTWRAPPER_STATUS.containing_type = _RESULTWRAPPER
 _TOCLIENT.fields_by_name['result_wrapper'].message_type = _RESULTWRAPPER
 _TOFROMENGINE.fields_by_name['from_client'].message_type = _FROMCLIENT
@@ -417,5 +429,5 @@ _sym_db.RegisterMessage(ToFromEngine)
 
 
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\032edu.cmu.cs.gabriel.networkB\006Protos'))
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\030edu.cmu.cs.gabrielcleintB\006Protos'))
 # @@protoc_insertion_point(module_scope)
