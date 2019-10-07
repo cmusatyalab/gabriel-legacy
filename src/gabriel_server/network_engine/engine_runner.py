@@ -1,6 +1,6 @@
 import logging
 import zmq
-from gabriel_server import gabriel_pb2
+from gabriel_protocol import gabriel_pb2
 
 
 logger = logging.getLogger(__name__)

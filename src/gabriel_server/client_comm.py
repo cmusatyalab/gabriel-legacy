@@ -2,7 +2,7 @@ import logging
 import asyncio
 import multiprocessing
 import queue
-from gabriel_server import gabriel_pb2
+from gabriel_protocol import gabriel_pb2
 import websockets
 from types import SimpleNamespace
 
@@ -42,7 +42,7 @@ async def _send_no_tokens_message(websocket, raw_input, tokens):
 
     from_client = gabriel_pb2.FromClient()
     from_client.ParseFromString(raw_input)
-    
+
     await _send_error(websocket, from_client, tokens,
                       gabriel_pb2.ResultWrapper.Status.NO_TOKENS)
 

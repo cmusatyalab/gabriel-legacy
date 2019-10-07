@@ -1,7 +1,7 @@
 import logging
 from threading import Thread
 from gabriel_server.client_comm import WebsocketServer
-from gabriel_server import gabriel_pb2
+from gabriel_protocol import gabriel_pb2
 import zmq
 
 

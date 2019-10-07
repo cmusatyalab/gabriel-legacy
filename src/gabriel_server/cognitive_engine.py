@@ -1,6 +1,6 @@
 from abc import ABC
 from abc import abstractmethod
-from gabriel_server import gabriel_pb2
+from gabriel_protocol import gabriel_pb2
 
 
 def _status_message(frame_id, status):
