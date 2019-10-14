@@ -49,6 +49,7 @@ def run(engine_setup, engine_name):
     shuttle_thread = Thread(
         target=_queue_shuttle,
         args=(websocket_server, parent_conn))
+    shuttle_thread.daemon=True  # Stop thread on KeyboardInterrupt
     shuttle_thread.start()
     engine_process = Process(
         target=_run_engine,
