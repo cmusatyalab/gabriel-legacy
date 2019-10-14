@@ -14,3 +14,7 @@ using zmq.
 Requires Python >= 3.6 
 
 Run `pip install gabriel-server`
+
+## Publishing Changes to PyPi
+
+Update the version number in python/setup.py. Then follow [these instructions](https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives).
