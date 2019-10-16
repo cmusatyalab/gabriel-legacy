@@ -5,13 +5,10 @@ from gabriel_protocol import gabriel_pb2
 import zmq
 
 
-ENGINE_ADDR = 'tcp://*:5555'
-
-
 logger = logging.getLogger(__name__)
 
 
-def _engine_comm(websocket_server, engine_addr=ENGINE_ADDR):
+def _engine_comm(websocket_server, engine_addr):
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.bind(engine_addr)
@@ -39,13 +36,13 @@ def _engine_comm(websocket_server, engine_addr=ENGINE_ADDR):
         websocket_server.unregister_engine(engine_name)
 
 
-def run(input_queue_maxsize, port, num_tokens):
+def run(input_queue_maxsize, server_port, num_tokens, engine_addr):
     '''This should never return'''
     websocket_server = WebsocketServer(input_queue_maxsize, port, num_tokens)
 
     engine_comm_thread = Thread(
         target=_engine_comm,
-        args=(websocket_server,))
+        args=(websocket_server, engine_addr))
     engine_comm_thread.start()
 
     websocket_server.launch()

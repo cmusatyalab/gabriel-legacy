@@ -48,7 +48,7 @@ async def _send_engine_not_available_message(websocket, from_client, tokens):
 
 
 class WebsocketServer:
-    def __init__(self, input_queue_maxsize, num_tokens, port):
+    def __init__(self, input_queue_maxsize, port, num_tokens):
 
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
