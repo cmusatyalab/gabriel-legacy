@@ -6,12 +6,6 @@ from gabriel_protocol import gabriel_pb2
 import websockets
 from types import SimpleNamespace
 
-
-PORT = 9098
-NUM_TOKENS = 2
-INPUT_QUEUE_MAXSIZE = 2
-
-
 logger = logging.getLogger(__name__)
 websockets_logger = logging.getLogger('websockets')
 
@@ -52,15 +46,16 @@ async def _send_engine_not_available_message(websocket, from_client, tokens):
         websocket, from_client, tokens,
         gabriel_pb2.ResultWrapper.Status.REQUESTED_ENGINE_NOT_AVAILABLE)
 
+
 class WebsocketServer:
-    def __init__(self, input_queue_maxsize=INPUT_QUEUE_MAXSIZE,
-                 num_tokens=NUM_TOKENS):
+    def __init__(self, input_queue_maxsize, num_tokens, port):
 
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
 
         self._available_engines = set()
         self.num_tokens = num_tokens
+        self.port = port
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
 
@@ -150,7 +145,7 @@ class WebsocketServer:
             logger.info('Client disconnected: %s', address)
 
     def launch(self):
-        start_server = websockets.serve(self.handler, port=PORT)
+        start_server = websockets.serve(self.handler, port=self.port)
         self.event_loop.run_until_complete(start_server)
         self.event_loop.run_forever()
 

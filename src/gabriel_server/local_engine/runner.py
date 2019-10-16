@@ -40,9 +40,9 @@ def _queue_shuttle(websocket_server, conn):
             to_from_engine.result_wrapper, address)
 
 
-def run(engine_setup, engine_name):
+def run(engine_setup, engine_name, input_queue_maxsize, port, num_tokens):
     '''This should never return'''
-    websocket_server = WebsocketServer()
+    websocket_server = WebsocketServer(input_queue_maxsize, port, num_tokens)
     websocket_server.register_engine(engine_name)
 
     parent_conn, child_conn = Pipe()
