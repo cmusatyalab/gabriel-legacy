@@ -82,7 +82,14 @@ class WebsocketServer:
         address = websocket.remote_address
 
         try:
-            async for raw_input in websocket:
+            # TODO: ADD this line back in once we can stop supporting Python 3.5
+            # async for raw_input in websocket:
+
+            # TODO: Remove the following two lines when we can stop supporting
+            # Python 3.5
+            while True:
+                raw_input = await websocket.recv()
+
                 logger.debug('Received input from %s', address)
                 if client.tokens > 0:
                     to_from_engine = gabriel_pb2.ToFromEngine()
