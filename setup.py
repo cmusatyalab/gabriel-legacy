@@ -27,6 +27,6 @@ setuptools.setup(
         "gabriel-protocol==0.0.3",
         "websockets==8.0; python_version>=\"3.6\"",
         "websockets==7.0; python_version<\"3.6\"",
-        "pyzmq>=18.1",
+        "pyzmq==18.1",
     ],
 )
