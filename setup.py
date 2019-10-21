@@ -25,8 +25,8 @@ setuptools.setup(
     python_requires=">=3.5",
     install_requires=[
         "gabriel-protocol==0.0.3",
-        "websockets==8.0.2; python_version>=\"3.6\"",
+        "websockets==8.0; python_version>=\"3.6\"",
         "websockets==7.0; python_version<\"3.6\"",
-        "zmq>=0.0.0",
+        "pyzmq>=18.1",
     ],
 )
