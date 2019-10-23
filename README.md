@@ -11,7 +11,7 @@ engine. The engine_server_shuttle and network_engine communicate with each other
 using zmq.
 
 ## Installation
-Requires Python >= 3.6 
+Requires Python >= 3.5 
 
 Run `pip install gabriel-server`
 
