@@ -48,7 +48,8 @@ async def _send_engine_not_available_message(websocket, from_client, tokens):
 
 
 class WebsocketServer:
-    def __init__(self, input_queue_maxsize, port, num_tokens):
+    def __init__(
+            self, input_queue_maxsize, port, num_tokens, message_max_size=None):
 
         # multiprocessing.Queue is process safe
         self.input_queue = multiprocessing.Queue(input_queue_maxsize)
@@ -56,6 +57,7 @@ class WebsocketServer:
         self._available_engines = set()
         self.num_tokens = num_tokens
         self.port = port
+        self.message_max_size = message_max_size
         self.clients = {}
         self.event_loop = asyncio.get_event_loop()
 
@@ -152,7 +154,8 @@ class WebsocketServer:
             logger.info('Client disconnected: %s', address)
 
     def launch(self):
-        start_server = websockets.serve(self.handler, port=self.port)
+        start_server = websockets.serve(
+            self.handler, port=self.port, max_size=self.message_max_size)
         self.event_loop.run_until_complete(start_server)
         self.event_loop.run_forever()
 

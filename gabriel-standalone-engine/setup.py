@@ -1,13 +1,13 @@
 import setuptools
 
 
-DESCRIPTION = "Standalone Engine Runner for Gabriel Server. This must be used"
-              " with gabriel-server."
+DESCRIPTION = ("Standalone Engine Runner for Gabriel Server. This must be used "
+               "with gabriel-server.")
 
 
 setuptools.setup(
-    name="gabriel-server",
-    version="0.0.1",
+    name="gabriel-standalone-engine",
+    version="0.0.2",
     author="Roger Iyengar",
     author_email="ri@rogeriyengar.com",
     description=DESCRIPTION,
@@ -31,6 +31,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
+        "gabriel-protocol==0.0.4",
         "pyzmq==18.1",
     ],
 )

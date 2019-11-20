@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="gabriel-server",
-    version="0.1.0",
+    version="0.1.1",
     author="Roger Iyengar",
     author_email="ri@rogeriyengar.com",
     description="Server for Wearable Cognitive Assistance Applications",
