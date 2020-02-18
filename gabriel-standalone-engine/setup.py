@@ -7,7 +7,7 @@ DESCRIPTION = ("Standalone Engine Runner for Gabriel Server. This must be used "
 
 setuptools.setup(
     name="gabriel-standalone-engine",
-    version="0.0.2",
+    version="0.0.3",
     author="Roger Iyengar",
     author_email="ri@rogeriyengar.com",
     description=DESCRIPTION,
