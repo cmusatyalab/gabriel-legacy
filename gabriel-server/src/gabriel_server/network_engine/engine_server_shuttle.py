@@ -38,7 +38,8 @@ def _engine_comm(websocket_server, engine_addr):
 
 def run(input_queue_maxsize, server_port, num_tokens, engine_addr):
     '''This should never return'''
-    websocket_server = WebsocketServer(input_queue_maxsize, port, num_tokens)
+    websocket_server = WebsocketServer(
+        input_queue_maxsize, server_port, num_tokens)
 
     engine_comm_thread = Thread(
         target=_engine_comm,
