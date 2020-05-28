@@ -7,7 +7,7 @@ from gabriel_protocol.gabriel_pb2.ResultWrapper import Status
 import websockets
 from abc import ABC
 from abc import abstractmethod
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 
 
 logger = logging.getLogger(__name__)
@@ -26,19 +26,19 @@ async def _send_error(websocket, from_client, status):
 
 
 class WebsocketServer(ABC):
-    def __init__(self, port, num_tokens, message_max_size=None):
-
+    def __init__(self, port, num_tokens_per_filter, message_max_size=None):
         self._port = port
-        self._num_tokens_per_filter = num_tokens
+        self._num_tokens_per_filter = num_tokens_per_filter
         self._message_max_size = message_max_size
         self._clients = {}
+        self._filters_consumed = set()
         self._event_loop = asyncio.get_event_loop()
 
     @abstractmethod
-    async def handle_input(self, to_engine_serialized):
+    async def _handle_input(self, to_engine):
         pass
 
-    async def consumer_handler(self, websocket, client):
+    async def _consumer_handler(self, websocket, client):
         address = websocket.remote_address
 
         try:
@@ -59,11 +59,11 @@ class WebsocketServer(ABC):
 
                 filter_passed = to_engine.from_client.filter_passed
 
-                if filter_passed not in client.tokens_for_filter:
+                if filter_passed not in filters_consumed:
                     logger.error('No engines consume frames from %s',
                                 filter_passed)
                     await _send_error(websocket, to_engine.from_client,
-                                      Status.REQUESTED_ENGINE_NOT_AVAILABLE)
+                                      Status.NO_ENGINE_FOR_FILTER_PASSED)
                     continue
 
                 if client.tokens_for_filter[filter_passed] < 1:
@@ -75,80 +75,79 @@ class WebsocketServer(ABC):
                                       Status.NO_TOKENS)
                     continue
 
-                # TODO give token back if engine rejects frame
                 client.tokens_for_filter[filter_passed] -= 1
-                await self.handle_input(to_engine.SerializeToString())
+                await self._handle_input(to_engine)
         except websockets.exceptions.ConnectionClosed:
             return  # stop the handler
 
-    async def handler(self, websocket, _):
+    async def _handler(self, websocket, _):
         address = websocket.remote_address
         logger.info('New Client connected: %s', address)
 
-        # asyncio.Queue does not block the event loop
-        result_queue = asyncio.Queue()
-
         client = namedtuple(
-            tokens_for_filter=defaultdict(lambda: self._num_tokens_per_filter),
+            tokens_for_filter={filter_name: self._num_tokens_per_filter
+                               for filter_name in self._filters_consumed},
             websocket=websocket)
-        self.clients[address] = client
+        self._clients[address] = client
 
         # Send client welcome message
         to_client = gabriel_pb2.ToClient()
-        # TODO to_client.welcome_message.filters_consumed
+        to_client.welcome_message.filters_consumed = list(
+            self._filters_consumed)
         to_client.welcome_message.num_tokens_per_filter = (
             self._num_tokens_per_filter)
         await websocket.send(to_client.SerializeToString())
 
         try:
-            await self.consumer_handler(websocket, client)
+            await self._consumer_handler(websocket, client)
         finally:
-            del self.clients[address]
+            del self._clients[address]
             logger.info('Client disconnected: %s', address)
 
     def launch(self):
         start_server = websockets.serve(
-            self.handler, port=self.port, max_size=self.message_max_size)
-        self.event_loop.run_until_complete(start_server)
-        self.event_loop.run_forever()
+            self._handler, port=self._port, max_size=self._message_max_size)
+        self._event_loop.run_until_complete(start_server)
+        self._event_loop.run_forever()
 
-    async def _send_result_helper(self, result_wrapper, address, filter_name):
-        client = self.clients.get(address)
+    async def _send_result_helper(self, result_wrapper, address):
+        client = self._clients.get(address)
         if client is None:
             logger.warning('Result for nonexistant address %s', address)
             return
 
-        client.tokens_for_filter[filter_name] += 1
+        client.tokens_for_filter[result_wrapper.filter_passed] += 1
 
         to_client = gabriel_pb2.ToClient()
         to_client.result_wrapper.CopyFrom(result_wrapper)
         logger.debug('Sending to %s', address)
         await client.websocket.send(to_client.SerializeToString())
 
-    def send_result(self, result_wrapper, address, filter_name):
+    def send_result(self, result_wrapper, address):
         '''Schedule event to send result to address.
 
-        Return token for filter_name for client.
-
         Can be called from a different thread. But this thread must be part of
-        the same process as the event loop.'''
+        the same process as the thread that is running the event loop.'''
 
         asyncio.run_coroutine_threadsafe(
-            self._send_result_helper(result_wrapper, address, filter_name),
-            self.event_loop)
+            self._send_result_helper(result_wrapper, address), self._event_loop)
 
-    def register_engine(self, engine_name):
-        '''Add a cognitive engine to self._available_engines.
+    def add_filter_consumed(self, filter_name):
+        '''Indicate that at least one cognitive engine consumes frames that
+        pass filter_name.
 
-        Done on event loop because set() is not thread safe.'''
+        Must be called before self.launch() or run on self._event_loop.'''
 
-        self.event_loop.call_soon_threadsafe(
-            self._available_engines.add, engine_name)
+        self._filters_consumed.add(filter_name)
+        for client in clients:
+            client.tokens_for_filter[filter_name] = self._num_tokens_per_filter
 
-    def unregister_engine(self, engine_name):
-        '''Remove a cognitive engine from self._available_engines.
+    def remove_filter_consumed(self, filter_name):
+        '''Indicate that all cognitive engines that consumed frames that
+        pass filter_name have been stopped.
 
-        Done on event loop because set() is not thread safe.'''
+        Must be called before self.launch() or run on self._event_loop.'''
 
-        self.event_loop.call_soon_threadsafe(
-            self._available_engines.remove, engine_name)
+        self._filters_consumed.remove(filter_name)
+        for client in clients:
+            del client.tokens_for_filter[filter_name]
