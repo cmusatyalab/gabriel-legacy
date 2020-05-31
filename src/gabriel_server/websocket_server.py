@@ -110,7 +110,7 @@ class WebsocketServer(ABC):
         except websockets.exceptions.ConnectionClosed:
             return  # stop the handler
 
-    def _producer(self, server):
+    async def _producer(self, server):
         while server.is_serving():
             from_engine_serialized = await self._recv_from_engine()
             from_engine = gabriel_pb2.FromEngine()
