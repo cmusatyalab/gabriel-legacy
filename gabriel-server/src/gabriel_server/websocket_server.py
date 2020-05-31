@@ -35,50 +35,14 @@ class WebsocketServer(ABC):
         self._event_loop = asyncio.get_event_loop()
 
     @abstractmethod
-    async def _handle_input(self, to_engine):
+    async def _send_to_engine(self, to_engine):
+        '''Send ToEngine to the appropriate engine(s).'''
         pass
 
-    async def _consumer_handler(self, websocket, client):
-        address = websocket.remote_address
-
-        try:
-            # TODO: ADD this line back in once we can stop supporting Python 3.5
-            # async for raw_input in websocket:
-
-            # TODO: Remove the following two lines when we can stop supporting
-            # Python 3.5
-            while True:
-                raw_input = await websocket.recv()
-
-                logger.debug('Received input from %s', address)
-
-                to_engine = gabriel_pb2.ToEngine()
-                to_engine.host = address[0]
-                to_engine.port = address[1]
-                to_engine.from_client.ParseFromString(raw_input)
-
-                filter_passed = to_engine.from_client.filter_passed
-
-                if filter_passed not in filters_consumed:
-                    logger.error('No engines consume frames from %s',
-                                filter_passed)
-                    await _send_error(websocket, to_engine.from_client,
-                                      Status.NO_ENGINE_FOR_FILTER_PASSED)
-                    continue
-
-                if client.tokens_for_filter[filter_passed] < 1:
-                    logger.error(
-                        'Client %s sending output of filter %s without tokens',
-                        websocket.remote_address, filter_passed)
-
-                    await _send_error(websocket, to_engine.from_client,
-                                      Status.NO_TOKENS)
-                    continue
-
-                client.tokens_for_filter[filter_passed] -= 1
-                await self._handle_input(to_engine)
-        except websockets.exceptions.ConnectionClosed:
-            return  # stop the handler
+    @abstractmethod
+    async def _recv_from_engine(self):
+        '''Return FromEngine message that the engine outputs.'''
+        pass
 
     async def _handler(self, websocket, _):
         address = websocket.remote_address
@@ -99,44 +63,83 @@ class WebsocketServer(ABC):
         await websocket.send(to_client.SerializeToString())
 
         try:
-            await self._consumer_handler(websocket, client)
+            await self._consumer(websocket, client)
         finally:
             del self._clients[address]
             logger.info('Client disconnected: %s', address)
 
+    async def _consumer(self, websocket, client):
+        address = websocket.remote_address
+
+        try:
+            # TODO: ADD this line back in once we can stop supporting Python 3.5
+            # async for raw_input in websocket:
+
+            # TODO: Remove the following two lines when we can stop supporting
+            # Python 3.5
+            while True:
+                raw_input = await websocket.recv()
+
+                logger.debug('Received input from %s', address)
+
+                to_engine = gabriel_pb2.ToEngine()
+                to_engine.host = address[0]
+                to_engine.port = address[1]
+                to_engine.from_client.ParseFromString(raw_input)
+
+                filter_passed = to_engine.from_client.filter_passed
+
+                if filter_passed not in self._filters_consumed:
+                    logger.error('No engines consume frames from %s',
+                                filter_passed)
+                    await _send_error(websocket, to_engine.from_client,
+                                      Status.NO_ENGINE_FOR_FILTER_PASSED)
+                    continue
+
+                if client.tokens_for_filter[filter_passed] < 1:
+                    logger.error(
+                        'Client %s sending output of filter %s without tokens',
+                        websocket.remote_address, filter_passed)
+
+                    await _send_error(websocket, to_engine.from_client,
+                                      Status.NO_TOKENS)
+                    continue
+
+                client.tokens_for_filter[filter_passed] -= 1
+                await self._send_to_engine(to_engine)
+        except websockets.exceptions.ConnectionClosed:
+            return  # stop the handler
+
+    def _producer(self, server):
+        while server.is_serving():
+            from_engine = await self._recv_from_engine()
+            client = self._clients.get((from_engine.host, from_engine.port))
+            if client is None:
+                logger.warning('Result for nonexistant address %s', address)
+                continue
+
+            client.tokens_for_filter[result_wrapper.filter_passed] += 1
+
+            to_client = gabriel_pb2.ToClient()
+            to_client.result_wrapper.CopyFrom(result_wrapper)
+            logger.debug('Sending to %s', address)
+            await client.websocket.send(to_client.SerializeToString())
+
     def launch(self):
         start_server = websockets.serve(
             self._handler, port=self._port, max_size=self._message_max_size)
-        self._event_loop.run_until_complete(start_server)
+        server = self._event_loop.run_until_complete(start_server)
+        asyncio.ensure_future(self._producer(server))
         self._event_loop.run_forever()
-
-    async def _send_result_helper(self, result_wrapper, address):
-        client = self._clients.get(address)
-        if client is None:
-            logger.warning('Result for nonexistant address %s', address)
-            return
-
-        client.tokens_for_filter[result_wrapper.filter_passed] += 1
-
-        to_client = gabriel_pb2.ToClient()
-        to_client.result_wrapper.CopyFrom(result_wrapper)
-        logger.debug('Sending to %s', address)
-        await client.websocket.send(to_client.SerializeToString())
-
-    def send_result(self, result_wrapper, address):
-        '''Schedule event to send result to address.
-
-        Can be called from a different thread. But this thread must be part of
-        the same process as the thread that is running the event loop.'''
-
-        asyncio.run_coroutine_threadsafe(
-            self._send_result_helper(result_wrapper, address), self._event_loop)
 
     def add_filter_consumed(self, filter_name):
         '''Indicate that at least one cognitive engine consumes frames that
         pass filter_name.
 
         Must be called before self.launch() or run on self._event_loop.'''
+
+        if filter_name in self._filters_consumed:
+            return
 
         self._filters_consumed.add(filter_name)
         for client in clients:
@@ -147,6 +150,9 @@ class WebsocketServer(ABC):
         pass filter_name have been stopped.
 
         Must be called before self.launch() or run on self._event_loop.'''
+
+        if filter_name not in self._filters_consumed:
+            return
 
         self._filters_consumed.remove(filter_name)
         for client in clients:
