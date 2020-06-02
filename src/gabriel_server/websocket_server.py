@@ -36,7 +36,9 @@ class WebsocketServer(ABC):
 
     @abstractmethod
     async def _send_to_engine(self, to_engine):
-        '''Send ToEngine to the appropriate engine(s).'''
+        '''Send ToEngine to the appropriate engine(s).
+
+        Return True if send succeeded.'''
         pass
 
     @abstractmethod
@@ -77,7 +79,7 @@ class WebsocketServer(ABC):
 
             # TODO: Remove the following two lines when we can stop supporting
             # Python 3.5
-            while True:
+            while websocket.open:
                 raw_input = await websocket.recv()
 
                 logger.debug('Received input from %s', address)
@@ -105,8 +107,15 @@ class WebsocketServer(ABC):
                                       Status.NO_TOKENS)
                     continue
 
+                send_succeeded = await self._send_to_engine(to_engine)
+                if not send_succeeded:
+                    logger.error('Send to engine(s) that consume %s failed',
+                                filter_passed)
+                    await _send_error(websocket, to_engine.from_client,
+                                      Status.SERVER_DROPPED_FRAME)
+                    continue
+
                 client.tokens_for_filter[filter_passed] -= 1
-                await self._send_to_engine(to_engine)
         except websockets.exceptions.ConnectionClosed:
             return  # stop the handler
 
