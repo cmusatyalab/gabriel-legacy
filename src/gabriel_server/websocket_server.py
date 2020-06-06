@@ -22,6 +22,7 @@ async def _send_error(websocket, from_client, status):
     to_client = gabriel_pb2.ToClient()
     to_client.result_wrapper.frame_id = from_client.frame_id
     to_client.result_wrapper.status = status
+    to_client.return_token = True
     await websocket.send(to_client.SerializeToString())
 
 
@@ -62,6 +63,7 @@ class WebsocketServer(ABC):
             self._filters_consumed)
         to_client.welcome_message.num_tokens_per_filter = (
             self._num_tokens_per_filter)
+        to_client.return_token = False
         await websocket.send(to_client.SerializeToString())
 
         try:
@@ -131,11 +133,13 @@ class WebsocketServer(ABC):
                 logger.warning('Result for nonexistant address %s', address)
                 continue
 
+            if from_engine.return_token:
+                client.tokens_for_filter[result_wrapper.filter_passed] += 1
             result_wrapper = from_engine.result_wrapper
-            client.tokens_for_filter[result_wrapper.filter_passed] += 1
 
             to_client = gabriel_pb2.ToClient()
             to_client.result_wrapper.CopyFrom(result_wrapper)
+            to_client.return_token = from_engine.return_token
             logger.debug('Sending to %s', address)
             await client.websocket.send(to_client.SerializeToString())
 

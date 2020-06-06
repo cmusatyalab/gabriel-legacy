@@ -79,6 +79,7 @@ def _run_engine(engine_factory, input_queue, read, write):
             from_engine = gabriel_pb2.FromEngine()
             from_engine.host = to_engine.host
             from_engine.port = to_engine.port
+            from_engine.return_token = True
             from_engine.result_wrapper.CopyFrom(result_wrapper)
 
             _write_message(write, from_engine.SerializeToString())
