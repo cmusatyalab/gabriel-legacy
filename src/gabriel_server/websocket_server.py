@@ -3,7 +3,7 @@ import asyncio
 import multiprocessing
 import queue
 from gabriel_protocol import gabriel_pb2
-from gabriel_protocol.gabriel_pb2.ResultWrapper import Status
+from gabriel_protocol.gabriel_pb2 import ResultWrapper
 import websockets
 from abc import ABC
 from abc import abstractmethod
@@ -12,7 +12,6 @@ from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 websockets_logger = logging.getLogger(websockets.__name__)
-
 
 # The entire payload will be printed if this is allowed to be DEBUG
 websockets_logger.setLevel(logging.INFO)
@@ -24,6 +23,9 @@ async def _send_error(websocket, from_client, status):
     to_client.result_wrapper.status = status
     to_client.return_token = True
     await websocket.send(to_client.SerializeToString())
+
+
+_Client = namedtuple('_Client', ['tokens_for_filter', 'websocket'])
 
 
 class WebsocketServer(ABC):
@@ -51,7 +53,7 @@ class WebsocketServer(ABC):
         address = websocket.remote_address
         logger.info('New Client connected: %s', address)
 
-        client = namedtuple(
+        client = _Client(
             tokens_for_filter={filter_name: self._num_tokens_per_filter
                                for filter_name in self._filters_consumed},
             websocket=websocket)
@@ -59,8 +61,8 @@ class WebsocketServer(ABC):
 
         # Send client welcome message
         to_client = gabriel_pb2.ToClient()
-        to_client.welcome_message.filters_consumed = list(
-            self._filters_consumed)
+        for filter_name in self._filters_consumed:
+            to_client.welcome_message.filters_consumed.append(filter_name)
         to_client.welcome_message.num_tokens_per_filter = (
             self._num_tokens_per_filter)
         to_client.return_token = False
@@ -97,7 +99,7 @@ class WebsocketServer(ABC):
                     logger.error('No engines consume frames from %s',
                                 filter_passed)
                     await _send_error(websocket, to_engine.from_client,
-                                      Status.NO_ENGINE_FOR_FILTER_PASSED)
+                                      ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED)
                     continue
 
                 if client.tokens_for_filter[filter_passed] < 1:
@@ -106,7 +108,7 @@ class WebsocketServer(ABC):
                         websocket.remote_address, filter_passed)
 
                     await _send_error(websocket, to_engine.from_client,
-                                      Status.NO_TOKENS)
+                                      ResultWrapper.Status.NO_TOKENS)
                     continue
 
                 send_succeeded = await self._send_to_engine(to_engine)
@@ -114,7 +116,7 @@ class WebsocketServer(ABC):
                     logger.error('Send to engine(s) that consume %s failed',
                                 filter_passed)
                     await _send_error(websocket, to_engine.from_client,
-                                      Status.SERVER_DROPPED_FRAME)
+                                      ResultWrapper.Status.SERVER_DROPPED_FRAME)
                     continue
 
                 client.tokens_for_filter[filter_passed] -= 1
@@ -133,9 +135,9 @@ class WebsocketServer(ABC):
                 logger.warning('Result for nonexistant address %s', address)
                 continue
 
+            result_wrapper = from_engine.result_wrapper
             if from_engine.return_token:
                 client.tokens_for_filter[result_wrapper.filter_passed] += 1
-            result_wrapper = from_engine.result_wrapper
 
             to_client = gabriel_pb2.ToClient()
             to_client.result_wrapper.CopyFrom(result_wrapper)
@@ -160,7 +162,7 @@ class WebsocketServer(ABC):
             return
 
         self._filters_consumed.add(filter_name)
-        for client in clients:
+        for client in self._clients:
             client.tokens_for_filter[filter_name] = self._num_tokens_per_filter
 
     def remove_filter_consumed(self, filter_name):
