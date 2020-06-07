@@ -29,8 +29,8 @@ def run(engine_factory, filter_name, input_queue_maxsize, port, num_tokens):
 
         local_server.launch()
     finally:
-        os.close(read)
         local_server.cleanup()
+        os.close(read)
 
     raise Exception('Server stopped')
 
@@ -40,15 +40,16 @@ class _LocalServer(WebsocketServer):
         super().__init__(port, num_tokens_per_filter)
         self._input_queue = input_queue
 
-        pipe = os.fdopen(read, mode='r')
         loop = asyncio.get_event_loop()
         self._stream_reader = asyncio.StreamReader(loop=loop)
         def protocol_factory():
             return asyncio.StreamReaderProtocol(self._stream_reader)
+        self._pipe = os.fdopen(read, mode='r')
         self._transport, _ = loop.run_until_complete(
-            loop.connect_read_pipe(protocol_factory, pipe))
+            loop.connect_read_pipe(protocol_factory, self._pipe))
 
     def cleanup(self):
+        self._pipe.close()
         self._transport.close()
 
     async def _send_to_engine(self, to_engine):

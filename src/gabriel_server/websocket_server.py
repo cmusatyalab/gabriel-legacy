@@ -98,8 +98,8 @@ class WebsocketServer(ABC):
                 if filter_passed not in self._filters_consumed:
                     logger.error('No engines consume frames from %s',
                                 filter_passed)
-                    await _send_error(websocket, to_engine.from_client,
-                                      ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED)
+                    status = ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED
+                    await _send_error(websocket, to_engine.from_client, status)
                     continue
 
                 if client.tokens_for_filter[filter_passed] < 1:
