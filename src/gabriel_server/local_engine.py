@@ -44,12 +44,11 @@ class _LocalServer(WebsocketServer):
         self._stream_reader = asyncio.StreamReader(loop=loop)
         def protocol_factory():
             return asyncio.StreamReaderProtocol(self._stream_reader)
-        self._pipe = os.fdopen(read, mode='r')
+        pipe = os.fdopen(read, mode='r')
         self._transport, _ = loop.run_until_complete(
-            loop.connect_read_pipe(protocol_factory, self._pipe))
+            loop.connect_read_pipe(protocol_factory, pipe))
 
     def cleanup(self):
-        self._pipe.close()
         self._transport.close()
 
     async def _send_to_engine(self, to_engine):
