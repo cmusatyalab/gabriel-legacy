@@ -143,7 +143,10 @@ class WebsocketServer(ABC):
             to_client.result_wrapper.CopyFrom(result_wrapper)
             to_client.return_token = from_engine.return_token
             logger.debug('Sending to %s', address)
-            await client.websocket.send(to_client.SerializeToString())
+            try:
+                await client.websocket.send(to_client.SerializeToString())
+            except websockets.exceptions.ConnectionClosed:
+                logger.info('Skipping message to %s', address)
 
     def launch(self):
         start_server = websockets.serve(
