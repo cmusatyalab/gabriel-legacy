@@ -36,6 +36,7 @@ class WebsocketServer(ABC):
         self._clients = {}
         self._filters_consumed = set()
         self._event_loop = asyncio.get_event_loop()
+        self._server = None
 
     @abstractmethod
     async def _send_to_engine(self, to_engine):
@@ -70,6 +71,8 @@ class WebsocketServer(ABC):
 
         try:
             await self._consumer(websocket, client)
+        except websockets.exceptions.ConnectionClosed:
+            pass
         finally:
             del self._clients[address]
             logger.info('Client disconnected: %s', address)
@@ -77,57 +80,52 @@ class WebsocketServer(ABC):
     async def _consumer(self, websocket, client):
         address = websocket.remote_address
 
-        try:
-            # TODO: ADD this line back in once we can stop supporting Python 3.5
-            # async for raw_input in websocket:
+        # TODO: ADD this line back in once we can stop supporting Python 3.5
+        # async for raw_input in websocket:
 
-            # TODO: Remove the following two lines when we can stop supporting
-            # Python 3.5
-            while websocket.open:
-                raw_input = await websocket.recv()
+        # TODO: Remove the following two lines when we can stop supporting
+        # Python 3.5
+        while websocket.open:
+            raw_input = await websocket.recv()
 
-                logger.debug('Received input from %s', address)
+            logger.debug('Received input from %s', address)
 
-                to_engine = gabriel_pb2.ToEngine()
-                to_engine.host = address[0]
-                to_engine.port = address[1]
-                to_engine.from_client.ParseFromString(raw_input)
+            to_engine = gabriel_pb2.ToEngine()
+            to_engine.host = address[0]
+            to_engine.port = address[1]
+            to_engine.from_client.ParseFromString(raw_input)
 
-                filter_passed = to_engine.from_client.filter_passed
+            filter_passed = to_engine.from_client.filter_passed
 
-                if filter_passed not in self._filters_consumed:
-                    logger.error('No engines consume frames from %s',
-                                filter_passed)
-                    status = ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED
-                    await _send_error(websocket, to_engine.from_client, status)
-                    continue
+            if filter_passed not in self._filters_consumed:
+                logger.error('No engines consume frames from %s', filter_passed)
 
-                if client.tokens_for_filter[filter_passed] < 1:
-                    logger.error(
-                        'Client %s sending output of filter %s without tokens',
-                        websocket.remote_address, filter_passed)
+                status = ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED
+                await _send_error(websocket, to_engine.from_client, status)
 
-                    await _send_error(websocket, to_engine.from_client,
-                                      ResultWrapper.Status.NO_TOKENS)
-                    continue
+                continue
 
-                send_succeeded = await self._send_to_engine(to_engine)
-                if not send_succeeded:
-                    logger.error('Send to engine(s) that consume %s failed',
-                                filter_passed)
-                    await _send_error(websocket, to_engine.from_client,
-                                      ResultWrapper.Status.SERVER_DROPPED_FRAME)
-                    continue
+            if client.tokens_for_filter[filter_passed] < 1:
+                logger.error(
+                    'Client %s sending output of filter %s without tokens',
+                    websocket.remote_address, filter_passed)
 
+                status = ResultWrapper.Status.NO_TOKENS
+                await _send_error(websocket, to_engine.from_client, status)
+
+                continue
+
+            status = await self._send_to_engine(to_engine)
+            if status == ResultWrapper.Status.SUCCESS:
                 client.tokens_for_filter[filter_passed] -= 1
-        except websockets.exceptions.ConnectionClosed:
-            return  # stop the handler
+            else:
+                logger.error('Send status %d for engine(s) that consume %s',
+                             status, filter_passed)
+                await _send_error(websocket, to_engine.from_client, status)
 
-    async def _producer(self, server):
-        while server.is_serving():
-            from_engine_serialized = await self._recv_from_engine()
-            from_engine = gabriel_pb2.FromEngine()
-            from_engine.ParseFromString(from_engine_serialized)
+    async def _producer(self):
+        while self.is_running():
+            from_engine = await self._recv_from_engine()
             address = (from_engine.host, from_engine.port)
 
             client = self._clients.get(address)
@@ -148,11 +146,17 @@ class WebsocketServer(ABC):
             except websockets.exceptions.ConnectionClosed:
                 logger.info('Skipping message to %s', address)
 
+    def is_running(self):
+        if self._server is None:
+            return False
+
+        return self._server.is_serving()
+
     def launch(self):
         start_server = websockets.serve(
             self._handler, port=self._port, max_size=self._message_max_size)
-        server = self._event_loop.run_until_complete(start_server)
-        asyncio.ensure_future(self._producer(server))
+        self._server = self._event_loop.run_until_complete(start_server)
+        asyncio.ensure_future(self._producer())
         self._event_loop.run_forever()
 
     def add_filter_consumed(self, filter_name):

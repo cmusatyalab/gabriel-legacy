@@ -54,9 +54,10 @@ class _LocalServer(WebsocketServer):
     async def _send_to_engine(self, to_engine):
         try:
             self._input_queue.put_nowait(to_engine.SerializeToString())
-            return True
         except queue.Full:
-            return False
+            return ResultWrapper.Status.SERVER_DROPPED_FRAME
+
+        return ResultWrapper.Status.SUCCESS
 
     async def _recv_from_engine(self):
         '''Read serialized protobuf message.
@@ -65,7 +66,13 @@ class _LocalServer(WebsocketServer):
         read.'''
         size_bytes = await self._stream_reader.readexactly(_NUM_BYTES_FOR_SIZE)
         size_of_message = int.from_bytes(size_bytes, _BYTEORDER)
-        return await self._stream_reader.readexactly(size_of_message)
+        from_engine_serialized = await self._stream_reader.readexactly(
+            size_of_message)
+
+        from_engine = gabriel_pb2.FromEngine()
+        from_engine.ParseFromString(from_engine_serialized)
+        return from_engine
+
 
 
 def _run_engine(engine_factory, input_queue, read, write):
