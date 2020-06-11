@@ -159,20 +159,15 @@ class _Server(WebsocketServer):
         metadata = Metadata(
             frame_id=to_engine.from_client.frame_id, host=to_engine.host,
             port=to_engine.port)
+
+        found_free_engine = False
         for engine in filter_info.engines:
-            if engine.current_frame is None:
+            if engine.current_input_metadata is None:
+                found_free_engine = True
                 await _send_helper(engine, payload, metadata)
 
-        latest_input = filter_info.lastest_input
-        if (latest_input is not None and
-            latest_input.metadata not in filter_info.awaiting_response):
-            # No engines were given lastest_input
-            # Return token for this input
-            status = gabriel_pb2.ResultWrapper.Status.SERVER_DROPPED_FRAME
-            result_wrapper = cognitive_engine.error_result_wrapper(
-                lastest_input.metadata.frame_id, status)
-            await self._send_result_wrapper(
-                latest_input.metadata, result_wrapper)
+        if not found_free_engine:
+            return False
 
         frame_info.lastest_input = SimpleNamespace(
             metadata=metadata, payload=payload, token_returned=False)
