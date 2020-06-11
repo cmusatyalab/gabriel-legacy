@@ -54,6 +54,8 @@ class _LocalServer(WebsocketServer):
 
     async def _send_to_engine(self, to_engine):
         try:
+            # I did not check self._input_queue full() because the docs say that
+            # multiprocessing.Queue().full() is not reliable.
             self._input_queue.put_nowait(to_engine.SerializeToString())
         except queue.Full:
             return False
