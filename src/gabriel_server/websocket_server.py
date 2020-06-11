@@ -115,12 +115,13 @@ class WebsocketServer(ABC):
 
                 continue
 
-            status = await self._send_to_engine(to_engine)
-            if status == ResultWrapper.Status.SUCCESS:
+            send_success = await self._send_to_engine(to_engine)
+            if send_success:
                 client.tokens_for_filter[filter_passed] -= 1
             else:
-                logger.error('Send status %d for engine(s) that consume %s',
-                             status, filter_passed)
+                logger.error('Server dropped frame that passed filter: %s',
+                             filter_passed)
+                status = gabriel_pb2.ResultWrapper.Status.SERVER_DROPPED_FRAME
                 await _send_error(websocket, to_engine.from_client, status)
 
     async def _producer(self):

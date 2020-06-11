@@ -4,6 +4,7 @@ import multiprocessing
 import os
 import queue
 from gabriel_protocol import gabriel_pb2
+from gabriel_server import cognitive_engine
 from gabriel_server.websocket_server import WebsocketServer
 
 
@@ -55,9 +56,9 @@ class _LocalServer(WebsocketServer):
         try:
             self._input_queue.put_nowait(to_engine.SerializeToString())
         except queue.Full:
-            return ResultWrapper.Status.SERVER_DROPPED_FRAME
+            return False
 
-        return ResultWrapper.Status.SUCCESS
+        return True
 
     async def _recv_from_engine(self):
         '''Read serialized protobuf message.
@@ -87,12 +88,8 @@ def _run_engine(engine_factory, input_queue, read, write):
 
             result_wrapper = engine.handle(to_engine.from_client)
 
-            from_engine = gabriel_pb2.FromEngine()
-            from_engine.host = to_engine.host
-            from_engine.port = to_engine.port
-            from_engine.return_token = True
-            from_engine.result_wrapper.CopyFrom(result_wrapper)
-
+            from_engine = cognitive_engine.pack_from_engine(
+                to_engine.host, to_engine.port, result_wrapper)
             _write_message(write, from_engine.SerializeToString())
     finally:
         os.close(write)

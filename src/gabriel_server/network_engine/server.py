@@ -3,8 +3,10 @@ import time
 import logging
 import zmq
 import zmq.asyncio
+from collections import namedtuple
 from types import SimpleNamespace
 from gabriel_protocol import gabriel_pb2
+from gabriel_server import cognitive_engine
 from gabriel_server.websocket_server import WebsocketServer
 
 
@@ -12,6 +14,9 @@ ONE_MINUTE = 60
 
 
 logger = logging.getLogger(__name__)
+
+
+Metadata = namedtuple('Metadata', ['frame_id', 'host', 'port'])
 
 
 def run(websocket_port, zmq_address, num_tokens):
@@ -23,14 +28,6 @@ def run(websocket_port, zmq_address, num_tokens):
     server.launch()
 
 
-def _error_message(frame_id, status):
-    result_wrapper = gabriel_pb2.ResultWrapper()
-    result_wrapper.frame_id = frame_id
-    result_wrapper.status = status
-
-    return result_wrapper
-
-
 class _Server(WebsocketServer):
     def __init__(self, websocket_port, num_tokens, zmq_socket, timeout):
         super().__init__(websocket_port, num_tokens)
@@ -38,7 +35,7 @@ class _Server(WebsocketServer):
         self._zmq_socket = zmq_socket
         self._engines = {}
         self._early_discard_filters = {}
-        self._results_for_clients = asyncio.Queue()
+        self._from_engines = asyncio.Queue()
         self._timeout = timeout
 
     def launch(self):
@@ -61,15 +58,17 @@ class _Server(WebsocketServer):
         logger.info('New engine connected')
         engine = SimpleNamespace(
             filter_name=filter_name, address=address, last_recv=time.time(),
-            last_sent=0, current_frame=None)
+            last_sent=0, current_input_metadata=None)
 
         filter_info = self._early_discard_filters.get(filter_name)
         if filter_info is None:
             logger.info('An engine consumes inputs that passed filter %s',
                         filter_name)
             filter_info = SimpleNamespace(
-                latest_input=None, outstanding_tokens=set(), engines=set())
+                latest_input=None, awaiting_response=set(), engines=set())
             self._early_discard_filters[filter_name] = filter_info
+
+            self.add_filter_consumed(filter_name)
 
         self._engines[address] = engine
         filter_info.engines.add(engine)
@@ -90,29 +89,31 @@ class _Server(WebsocketServer):
         result_wrapper = gabriel_pb2.ResultWrapper()
         result_wrapper.ParseFromString(payload)
         filter_info = self._early_discard_filters[result_wrapper.filter_passed]
-        latest_input = filter_info.latest_input
 
-        if result_wrapper.frame_id in filter_info.outstanding_tokens:
-            await self._return_token(result_wrapper)
+        assert result_wrapper.frame_id == engine.current_input_metadata.frame_id
 
-        if result_wrapper.frame_id < latest_input.frame_id:
+        if engine.current_input_metadata in filter_info.awaiting_response:
+            await self._send_result_wrapper(
+                engine.current_input_metadata, result_wrapper)
+
+            filter_info.awaiting_response.remove(engine.current_input_metadata)
+
+            latest_input_frame_id = filter_info.latest_input.metadata.frame_id
+            if latest_input_frame_id == result_wrapper.frame_id:
+                filter_info.latest_input.token_returned = True
+
+        if engine.current_input_metadata != filter_info.latest_input.metadata:
             # send latest item to engine
             await self._send_helper(
-                engine, latest_input.payload, latest_input.frame_id)
+                engine, latest_input.payload, latest_input.metadata)
         else:
             # indicate engine is no longer busy
-            engine.current_frame = None
+            engine.current_input_metadata = None
 
-    async def _return_token(self, result_wrapper):
-        # FIXME _results_for_clients should have FromEngine instead of
-        # ResultWrapper. Fix by storing host and port in engine and latest_input
-
-        # Return token and results
-        await self._results_for_clients.put(result_wrapper)
-
-        filter_info.outstanding_tokens.remove(result_wrapper.frame_id)
-        if latest_input.frame_id == result_wrapper.frame_id:
-            latest_input.token_returned = True
+    async def _send_result_wrapper(self, metadata, result_wrapper):
+        from_engine = cognitive_engine.pack_from_engine(
+            metadata.host, metadata.port, result_wrapper)
+        await self._from_engines.put(from_engine)
 
     async def _heartbeat_helper(self):
         current_time = time.time()
@@ -126,58 +127,62 @@ class _Server(WebsocketServer):
                 self._drop_engine(engine)
                 continue
 
-            # Send heartbeat
-            await self._zmq_socket.send_multipart([address, b'', b''])
-            engine.last_sent = time.time()
+            if current_time - engine.last_sent > self._timeout:
+                # Send heartbeat
+                await self._zmq_socket.send_multipart([address, b'', b''])
+                engine.last_sent = time.time()
 
     def _drop_engine(self, engine):
         filter_info = self._early_discard_filters[engine.filter_name]
         filter_info.engines.remove(engine)
 
-        if engine.current_frame in filter_info.outstanding_tokens:
+        if engine.current_input_metadata in filter_info.awaiting_response:
             # Return token
-            frame_id = engine.current_frame
             status = gabriel_pb2.ResultWrapper.Status.ENGINE_ERROR
-            result_wrapper = _engine_error_message(frame_id, status)
-            self._return_token(result_wrapper)
+            result_wrapper = cognitive_engine.error_result_wrapper(
+                frame_id, status)
+            self._return_token(engine, filter_info, result_wrapper)
 
         if len(filter_info.engines) == 0:
             logger.info('No remaining engines consume input from filter: %s',
                         engine.filter_name)
             del self._early_discard_filters[engine.filter_name]
+            self.remove_filter_consumed(engine.filter_name)
 
         del self._engines[engine.address]
 
-    async def _send_helper(self, engine, payload, frame_id):
-        await self._zmq_socket.send_multipart([engine.address, b'', payload])
-        engine.last_sent = time.time()
-        engine.current_frame = frame_id
-
     async def _send_to_engine(self, to_engine):
         filter_passed = to_engine.from_client.filter_passed
-        filter_info = self._early_discard_filters.get(filter_passed)
-
-        if filter_info is None:
-            # filter_passed will still be a key in self._free_engines even if
-            # all engines that consume filter_passed are busy
-            return ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED
+        filter_info = self._early_discard_filters[filter_passed]
 
         payload = to_engine.from_client.SerializeToString()
-        frame_id = to_engine.from_client.frame_id
+        metadata = Metadata(
+            frame_id=to_engine.from_client.frame_id, host=to_engine.host,
+            port=to_engine.port)
         for engine in filter_info.engines:
             if engine.current_frame is None:
-                await send_helper(engine, payload, frame_id)
+                await _send_helper(engine, payload, metadata)
 
-        if filter_info.lastest_input.frame_id not in outstanding_tokens:
+        latest_input = filter_info.lastest_input
+        if (latest_input is not None and
+            latest_input.metadata not in filter_info.awaiting_response):
             # No engines were given lastest_input
             # Return token for this input
             status = gabriel_pb2.ResultWrapper.Status.SERVER_DROPPED_FRAME
-            result_wrapper = _engine_error_message(
-                filter_info.lastest_input.frame_id, status)
-            self._return_token(result_wrapper)
+            result_wrapper = cognitive_engine.error_result_wrapper(
+                lastest_input.metadata.frame_id, status)
+            await self._send_result_wrapper(
+                latest_input.metadata, result_wrapper)
 
         frame_info.lastest_input = SimpleNamespace(
-            frame_id=frame_id, payload=payload, token_returned=False)
+            metadata=metadata, payload=payload, token_returned=False)
+
+        return True
+
+    async def _send_helper(self, engine, payload, metadata):
+        await self._zmq_socket.send_multipart([engine.address, b'', payload])
+        engine.last_sent = time.time()
+        engine.current_input_metadata = metadata
 
     async def _recv_from_engine(self):
         return await self._results_for_clients.get()

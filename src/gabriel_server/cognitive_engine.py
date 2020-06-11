@@ -3,12 +3,22 @@ from abc import abstractmethod
 from gabriel_protocol import gabriel_pb2
 
 
-def wrong_input_format_message(frame_id):
+def error_result_wrapper(frame_id, status):
     result_wrapper = gabriel_pb2.ResultWrapper()
     result_wrapper.frame_id = frame_id
-    result_wrapper.status = gabriel_pb2.ResultWrapper.Status.WRONG_INPUT_FORMAT
+    result_wrapper.status = status
 
     return result_wrapper
+
+
+def pack_from_engine(host, port, restul_wrapper, return_token=True):
+    from_engine = gabriel_pb2.FromEngine()
+    from_engine.host = host
+    from_engine.port = port
+    from_engine.return_token = return_token
+    from_engine.result_wrapper.CopyFrom(result_wrapper)
+
+    return from_engine
 
 
 def unpack_extras(extras_class, from_client):
