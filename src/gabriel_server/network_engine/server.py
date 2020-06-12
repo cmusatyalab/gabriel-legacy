@@ -51,8 +51,8 @@ class _Server(WebsocketServer):
 
         async def heartbeat_loop():
             while True:
-                asyncio.sleep(self._timeout)
-                self._heartbeat_helper()
+                await asyncio.sleep(self._timeout)
+                await self._heartbeat_helper()
 
         asyncio.ensure_future(receive_from_engine_loop())
         asyncio.ensure_future(heartbeat_loop())
@@ -63,7 +63,7 @@ class _Server(WebsocketServer):
 
         engine = self._engines.get(address)
         if engine is None:
-            self._add_engine_server(payload.decode(), address)
+            await self._add_engine_server(payload.decode(), address)
             return
 
         engine.last_recv = time.time()
@@ -77,20 +77,18 @@ class _Server(WebsocketServer):
         filter_info = self._early_discard_filters[result_wrapper.filter_passed]
 
         assert result_wrapper.frame_id == metadata.frame_id
-
-        if filter_info.awaiting_response_for(metadata):
-            await self._send_result_wrapper(metadata, result_wrapper)
-            filter_info.mark_response_received(engine.current_input_metadata)
+        await filter_info.respond_to_client(metadata, result_wrapper)
 
         next_input = filter_info.get_next_input(metadata)
         if next_input is None:
             # indicate engine is no longer busy
             engine.current_input_metadata = None
             filter_info.add_free_engine(engine)
+        else:
+            await self._send_to_engine_server_helper(
+                engine, next_input.metadata, next_input.payload)
 
-        await self._send_helper(engine, next_input.metadata, next_input.payload)
-
-    def _add_engine_server(self, filter_name, address):
+    async def _add_engine_server(self, filter_name, address):
         logger.info('New engine connected that consumes filter: %s',
                     filter_name)
 
@@ -114,13 +112,8 @@ class _Server(WebsocketServer):
         if latest_input is None:
             filter_info.add_free_engine(engine)
         else:
-            await self._send_helper(
+            await self._send_to_engine_server_helper(
                 engine, latest_input.payload, latest_input.metadata)
-
-    async def _send_result_wrapper(self, metadata, result_wrapper):
-        from_engine = cognitive_engine.pack_from_engine(
-            metadata.host, metadata.port, result_wrapper)
-        await self._from_engines.put(from_engine)
 
     async def _heartbeat_helper(self):
         current_time = time.time()
@@ -131,7 +124,7 @@ class _Server(WebsocketServer):
             if (engine.last_sent - engine.last_recv) > self._timeout:
                 logger.info('Lost connection to engines that consumes items '
                             'from filter: %s', engine.filter_name)
-                self._drop_engine(engine)
+                await self._drop_engine(engine)
                 continue
 
             if current_time - engine.last_sent > self._timeout:
@@ -139,17 +132,15 @@ class _Server(WebsocketServer):
                 await self._zmq_socket.send_multipart([address, b'', b''])
                 engine.last_sent = time.time()
 
-    def _drop_engine(self, engine):
+    async def _drop_engine(self, engine):
         filter_info = self._early_discard_filters[engine.filter_name]
-        filter_info.engines.remove(engine)
 
-        if filter_info.awaiting_response_for(engine.current_input_metadata):
-            # Return token
-            status = gabriel_pb2.ResultWrapper.Status.ENGINE_ERROR
-            metadata = engine.current_input_metadata
-            result_wrapper = cognitive_engine.error_result_wrapper(
-                metadata.frame_id, status)
-            self._send_result_wrapper(metadata, result_wrapper)
+        # Return token for frame engine was in the middle of processing
+        status = gabriel_pb2.ResultWrapper.Status.ENGINE_ERROR
+        metadata = engine.current_input_metadata
+        result_wrapper = cognitive_engine.error_result_wrapper(
+            metadata.frame_id, status)
+        await filter_info.respond_to_client(metadata, result_wrapper)
 
         filter_info.remove_engine(engine)
         if filter_info.has_no_engines():
@@ -172,24 +163,25 @@ class _Server(WebsocketServer):
             return filter_info.add_fresh_input(metadata, payload)
 
         for engine in filter_info.get_free_engines():
-            await _send_helper(engine, metadata, payload)
+            await self._send_to_engine_server_helper(engine, metadata, payload)
         filter_info.clear_free_engines()
 
-        filter_info.mark_sent_to_server(metadata, payload)
+        filter_info.mark_sent_to_engine_server(metadata, payload)
         return True
 
-    async def _send_helper(self, engine, metadata, payload):
+    async def _send_to_engine_server_helper(self, engine, metadata, payload):
         await self._zmq_socket.send_multipart([engine.address, b'', payload])
         engine.last_sent = time.time()
         engine.current_input_metadata = metadata
 
     async def _recv_from_engine(self):
-        return await self._results_for_clients.get()
+        return await self._from_engines.get()
 
 
 class _FilterInfo:
-    def __init__(self, fresh_inputs_queue_size):
+    def __init__(self, fresh_inputs_queue_size, from_engines):
         self._fresh_inputs = asyncio.Queue(maxsize=fresh_inputs_queue_size)
+        self._from_engines = from_engines
         self._latest_input = None
         self._awaiting_response = set()
         self._engines=set()
@@ -200,7 +192,7 @@ class _FilterInfo:
 
     def remove_engine(self, engine):
         self._engines.remove(engine)
-        self._awaiting_response.discard(engine)
+        self._free_engines.discard(engine)
 
     def has_no_engines(self):
         return len(self._engines) > 0
@@ -228,18 +220,24 @@ class _FilterInfo:
     def get_free_engines(self):
         return self._free_engines
 
-    def mark_sent_to_server(self, metadata, payload):
+    def mark_sent_to_engine_server(self, metadata, payload):
         self._lastest_input = SimpleNamespace(
             metadata=metadata, payload=payload, token_returned=False)
         self._awaiting_response.add(metadata)
 
-    def mark_response_received(self, metadata):
+    async def respond_to_client(self, metadata, result_wrapper):
+        if metadata not in self._awaiting_response:
+            # We already responded to client for message corresponding to
+            # metadata for this filter.
+            return
+
+        from_engine = cognitive_engine.pack_from_engine(
+            metadata.host, metadata.port, result_wrapper)
+        await self._from_engines.put(from_engine)
+
         if self._latest_input.metadata == metadata:
             self._latest_input.token_returned = True
         self._awaiting_response.remove(metadata)
-
-    def awaiting_response_for(self, metadata):
-        return metadata in self._awaiting_response
 
     def get_next_input(self, metadata):
         '''
@@ -259,5 +257,6 @@ class _FilterInfo:
             return None
 
         fresh_input = self._fresh_inputs.get_nowait()
-        self.mark_sent_to_server(fresh_input.metadata, fresh_input.payload)
+        self.mark_sent_to_engine_server(
+            fresh_input.metadata, fresh_input.payload)
         return fresh_input
