@@ -122,7 +122,7 @@ class _Server(WebsocketServer):
 
             if ((not engine_worker.get_awaiting_heartbeat_response()) and
                 engine_worker.get_current_input_metadata is None):
-                engine_worker.send_heartbeat()
+                await engine_worker.send_heartbeat()
                 continue
 
             filter_info = engine_worker.get_filter_info()
@@ -135,7 +135,7 @@ class _Server(WebsocketServer):
                 logger.info('No remaining engines consume input from filter: '
                             '%s', engine.filter_name)
                 filter_name = filter_info.get_name()
-                del self._early_discard_filters[filter_name]
+                del self._filter_infos[filter_name]
                 self.remove_filter_consumed(filter_name)
 
     async def _send_to_engine(self, to_engine):
