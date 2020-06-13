@@ -4,7 +4,6 @@ import logging
 import zmq
 import zmq.asyncio
 from collections import namedtuple
-from types import SimpleNamespace
 from gabriel_protocol import gabriel_pb2
 from gabriel_server import cognitive_engine
 from gabriel_server.websocket_server import WebsocketServer
@@ -28,6 +27,13 @@ def run(websocket_port, zmq_address, num_tokens, input_queue_maxsize,
     server = _Server(websocket_port, num_tokens, zmq_socket, timeout,
                      input_queue_maxsize)
     server.launch()
+
+
+def extract_metadata_payload(to_engine):
+    metadata = Metadata(frame_id=to_engine.from_client.frame_id,
+                        host=to_engine.host, port=to_engine.port)
+    payload = to_engine.from_client.SerializeToString()
+    return (metadata, payload)
 
 
 class _Server(WebsocketServer):
@@ -66,18 +72,28 @@ class _Server(WebsocketServer):
             await self._add_engine_worker(payload.decode(), address)
             return
 
-        engine.record_payload_or_heatbeat()
         if payload == ''b:
-            # Heartbeat response
+            engine_worker.record_heatbeat()
             return
 
         result_wrapper = gabriel_pb2.ResultWrapper()
         result_wrapper.ParseFromString(payload)
-        metadata = engine_worker.current_input_metadata
-        filter_info = self._filter_infos[result_wrapper.filter_passed]
-
+        metadata = engine_worker.get_current_input_metadata()
         assert result_wrapper.frame_id == metadata.frame_id
-        await filter_info.respond_to_client(metadata, result_wrapper)
+
+        filter_info = self._filter_infos[result_wrapper.filter_passed]
+        latest_input_metadata = self._filter_info.get_latest_input_metadata()
+        if latest_input_metadata == metadata:
+            # Send response to client
+            await filter_info.respond_to_client(metadata, result_wrapper)
+            await engine_worker.send_message_from_queue()
+        elif latest_input_metadata is None:
+            # There is no new input to give the worker
+            engine_worker.clear_current_input_metadata()
+        else:
+            # Give the worker the latest input
+            latest_input_payload = self._filter_info.get_latest_input_payload()
+            await self.send_payload(latest_input_metadata, latest_input_payload)
 
     async def _add_engine_worker(self, filter_name, address):
         logger.info('New engine connected that consumes filter: %s',
@@ -97,20 +113,15 @@ class _Server(WebsocketServer):
         self._engines_workers[address] = engine_worker
 
         filter_info.add_engine_worker(engine_worker)
-        latest_input = filter_info.get_latest_input()
-        if latest_input is None:
-            filter_info.add_free_engine_worker(engine_worker)
-        else:
-            engine_worker.send_payload(
-                latest_input.metadata, latest_input.payload)
 
     async def _heartbeat_helper(self):
         current_time = time.time()
         for address, engine_worker in self._engine_workers.items():
-            if (current_time - engine.last_sent) < self._timeout:
+            if (current_time - engine.get_last_sent()) < self._timeout:
                 continue
 
-            if not engine_worker.outstanding_payload_or_heatbeat():
+            if ((not engine_worker.get_awaiting_heartbeat_response()) and
+                engine_worker.get_current_input_metadata is None):
                 engine_worker.send_heartbeat()
                 continue
 
@@ -129,7 +140,7 @@ class _Server(WebsocketServer):
 
     async def _send_to_engine(self, to_engine):
         filter_passed = to_engine.from_client.filter_passed
-        filter_info = self._early_discard_filters[filter_passed]
+        filter_info = self._filter_infos[filter_passed]
 
         return await filter_info.handle_new_to_engine(to_engine)
 
@@ -143,7 +154,7 @@ class _EngineWorker:
         self._filter_info = filter_info
         self._address = address
         self._last_sent = 0
-        self._outstanding_payload_or_heartbeat = False
+        self._awaiting_heartbeat_response = False
         self._current_input_metadata = None
 
     def get_address(self):
@@ -152,18 +163,33 @@ class _EngineWorker:
     def get_filter_info(self):
         return self._filter_info
 
-    def record_payload_or_heatbeat(self):
-        self._outstanding_payload_or_heartbeat = False
+    def get_current_input_metadata(self):
+        return self._current_input_metadata
 
-    def outstanding_payload_or_heatbeat(self):
-        return self._outstanding_payload_or_heartbeat
+    def clear_current_input_metadata(self):
+        self._current_input_metadata = None
 
-    def send_heartbeat(self):
-        self._outstanding_payload_or_heartbeat = True
-        await self._zmq_socket.send_multipart([address, b'', b''])
+    def record_heatbeat(self):
+        self._awaiting_heartbeat_response = False
+
+    def get_awaiting_heartbeat_response(self):
+        return self._awaiting_heartbeat_response
+
+    def get_last_sent(self):
+        return self._last_sent
+
+    async def send_heartbeat(self):
+        self._awaiting_heartbeat_response = True
+        await self._send_helper(b'')
+
+    async def _send_helper(payload):
+        await self._zmq_socket.send_multipart([self._address, b'', payload])
+        self._last_sent = time.time()
 
     async def drop(self):
-        if self._current_input_metadata is not None:
+        latest_input_metadata = self._filter_info.get_latest_input_metadata()
+        if (latest_input_metadata is not None and
+            self._current_input_metadata == latest_input_metadata):
             # Return token for frame engine was in the middle of processing
             status = gabriel_pb2.ResultWrapper.Status.ENGINE_ERROR
             metadata = self._current_input_metadata
@@ -174,45 +200,28 @@ class _EngineWorker:
         self._filter_info.remove_engine_worker(engine_worker)
 
     async def send_payload(self, metadata, payload):
-        self._outstanding_payload_or_heartbeat = True
-        await self._zmq_socket.send_multipart([self._address, b'', payload])
-        self._last_sent = time.time()
         self._current_input_metadata = metadata
+        await self._send_helper(payload)
 
-    async def send_next_message_or_mark_free(self):
-        latest_input = self._filter_info.get_latest_input()
-        if latest_input.metadata != self._current_input_metadata:
-            await self.send_payload(latest_input.metadata, latest_input.payload)
-            return
+    async def send_message_from_queue(self):
+        '''Send message from queue and update current input.
 
-        to_engine = get_unsent_to_engine
-        if to_engine is None:
-            self._mark_free()
-            return
+        Current input will be set as None if there is nothing on the queue.'''
+        metadata, payload = self._filter_info.advance_unsent_queue()
 
-        metadata, payload = self.prepare_to_engine(to_engine)
-        await self.send_payload(metadata, payload)
-
-    def _mark_free(self):
-        self._current_input_metadata = None
-        self._filter_info.add_free_engine_worker(self)
-
+        if metadata is None:
+            self._current_input_metadata = None
+        else:
+            await self.send_payload(metadata, payload)
 
 class _FilterInfo:
     def __init__(self, filter_name, fresh_inputs_queue_size, from_engines):
         self._filter_name = filter_name
         self._unsent_to_engines = asyncio.Queue(maxsize=fresh_inputs_queue_size)
         self._from_engines = from_engines
-        self._latest_input = None
-
-        # Checked when engine disconnects, to see if any other engines consume
-        # items from this filter.
-        self._engine_workers=set()
-
-        # Checked in self.handle_new_to_engine() to see if we should send the
-        # input to one or more engine handlers or add the input to
-        # self._unsent_to_engines.
-        self._free_engine_workers=set()
+        self._latest_input_metadata = None
+        self._latest_input_payload = None
+        self._engine_workers = set()
 
     def get_name():
         return self._filter_name
@@ -220,63 +229,63 @@ class _FilterInfo:
     def add_engine_worker(self, engine_worker):
         self._engine_workers.add(engine_worker)
 
-    def add_free_engine_worker(self, engine_worker):
-        self._free_engine_workers.add(engine_worker)
-
     def remove_engine_worker(self, engine_worker):
         self._engine_workers.remove(engine_worker)
-        self._free_engine_workers.discard(engine_worker)
 
     def has_no_engine_workers(self):
-        return len(self._engine_workers) > 0
+        return len(self._engine_workers) == 0
 
-    def get_latest_input(self):
-        return self._latest_input
+    def _set_latest_input(self, metadata, payload):
+        self._latest_input_metadata = metadata
+        self._latest_input_payload = payload
+
+    def get_latest_input_metadata(self):
+        return self._latest_input_metadata
+
+    def get_latest_input_payload(self):
+        return self._latest_input_payload
 
     async def handle_new_to_engine(self, to_engine):
-        if len(self._free_engine_workers) == 0:
-            if self._unsent_to_engines.full():
-                return False
+        sent_to_engine = False
+        metadata, payload = extract_metadata_payload(to_engine)
+        for engine_worker in self._engine_workers:
+            if engine_worker.get_current_input_metadata() is None:
+                await engine_worker.send_payload(metadata, payload)
+                sent_to_engine = True
 
-            self._unsent_to_engines.put_nowait(to_engine)
+        if sent_to_engine:
+            self._set_latest_input(metadata, payload)
             return True
 
-        (metadata, payload) = self.prepare_to_engine(to_engine)
-        for engine_worker in self._free_engine_workers:
-            await engine_worker.send_payload(metadata, payload)
+        if self._unsent_to_engines.full():
+            return False
 
-        self._free_engine_workers.clear()
+        self._unsent_to_engines.put_nowait(to_engine)
+        return True
 
     async def respond_to_client(self, metadata, result_wrapper):
-        if (self._latest_input.token_returned or
-            self._latest_input.metadata != metadata)
-            # We already responded to client for message corresponding to
-            # metadata for this filter.
-            return
-
         from_engine = cognitive_engine.pack_from_engine(
             metadata.host, metadata.port, result_wrapper)
         await self._from_engines.put(from_engine)
 
-        self._latest_input.token_returned = True
+        self._set_latest_input(None, None)
 
-    def get_unsent_to_engine(self):
+    def advance_unsent_queue(self):
         '''
-        Return next unsent item from queue, or None if queue is empty.
+        Remove an item from the queue of unsent to_engine messages, and store
+        this as the latest input.
+
+        Return (metadata, payload) if there was an item pulled off the queue.
+        Return (None, None) otherwise.
         '''
 
-        if self._fresh_inputs.empty():
-            return None
+        if self._unsent_to_engines.empty():
+            # We do not need to update latest input, because respond_to_client
+            # has already cleared latest_input
+            return (None, None)
 
-        return self._unsent_to_engines.get_nowait()
+        to_engine = self._unsent_to_engines.get_nowait()
+        metadata, payload = extract_metadata_payload(to_engine)
+        self._set_latest_input(metadata, payload)
 
-    def prepare_to_engine(self, to_engine):
-        '''Update internal state to reflect that to_engine is about to be sent,
-        and return payload and metadata.'''
-        metadata = Metadata(frame_id=to_engine.from_client.frame_id,
-                            host=to_engine.host, port=to_engine.port)
-        payload = to_engine.from_client.SerializeToString()
-
-        self._latest_input = SimpleNamespace(
-            metadata=metadata, payload=payload, token_returned=False)
         return (metadata, payload)
