@@ -78,9 +78,7 @@ class _Server(WebsocketServer):
         assert result_wrapper.frame_id == engine_worker_metadata.frame_id
 
         filter_info = self._filter_infos[result_wrapper.filter_passed]
-        assert filter_info.get_name() == result_wrapper.filter_passed
-
-        latest_input = self._filter_info.get_latest_input()
+        latest_input = filter_info.get_latest_input()
         if latest_input.metadata == engine_worker_metadata:
             # Send response to client
             await filter_info.respond_to_client(
@@ -92,7 +90,7 @@ class _Server(WebsocketServer):
             await filter_info.respond_to_client(
                 engine_worker_metadata, result_wrapper, return_token=False)
 
-        if latest_input_metadata is None:
+        if latest_input.metadata is None:
             # There is no new input to give the worker
             engine_worker.clear_current_input_metadata()
         else:
@@ -133,7 +131,7 @@ class _Server(WebsocketServer):
             logger.info('Lost connection to engine worker that consumes items '
                         'from filter: %s', filter_info.get_name())
             engine_worker.drop()
-            del self._engine_workers[engine_workers.get_address()]
+            del self._engine_workers[address]
 
             if filter_info.has_no_engine_workers():
                 filter_name = filter_info.get_name()
@@ -201,7 +199,7 @@ class _EngineWorker:
                 metadata.frame_id, status)
             await self._filter_info.respond_to_client(metadata, result_wrapper)
 
-        self._filter_info.remove_engine_worker(engine_worker)
+        self._filter_info.remove_engine_worker(self)
 
     async def send_payload(self, metadata_payload):
         self._current_input_metadata = metadata_payload.metadata
