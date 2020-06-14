@@ -17,8 +17,9 @@ websockets_logger = logging.getLogger(websockets.__name__)
 websockets_logger.setLevel(logging.INFO)
 
 
-async def _send_error(websocket, from_client, status):
+async def _send_error(websocket, filter_passed, from_client, status):
     to_client = gabriel_pb2.ToClient()
+    to_client.result_wrapper.filter_passed = filter_passed
     to_client.result_wrapper.frame_id = from_client.frame_id
     to_client.result_wrapper.status = status
     to_client.return_token = True
@@ -101,7 +102,8 @@ class WebsocketServer(ABC):
                 logger.error('No engines consume frames from %s', filter_passed)
 
                 status = ResultWrapper.Status.NO_ENGINE_FOR_FILTER_PASSED
-                await _send_error(websocket, to_engine.from_client, status)
+                await _send_error(
+                    websocket, filter_passed, to_engine.from_client, status)
 
                 continue
 
@@ -111,7 +113,8 @@ class WebsocketServer(ABC):
                     websocket.remote_address, filter_passed)
 
                 status = ResultWrapper.Status.NO_TOKENS
-                await _send_error(websocket, to_engine.from_client, status)
+                await _send_error(
+                    websocket, filter_passed, to_engine.from_client, status)
 
                 continue
 
@@ -122,7 +125,8 @@ class WebsocketServer(ABC):
                 logger.error('Server dropped frame that passed filter: %s',
                              filter_passed)
                 status = gabriel_pb2.ResultWrapper.Status.SERVER_DROPPED_FRAME
-                await _send_error(websocket, to_engine.from_client, status)
+                await _send_error(
+                    websocket, filter_passed, to_engine.from_client, status)
 
     async def _producer(self):
         while self.is_running():
@@ -136,7 +140,12 @@ class WebsocketServer(ABC):
 
             result_wrapper = from_engine.result_wrapper
             if from_engine.return_token:
-                client.tokens_for_filter[result_wrapper.filter_passed] += 1
+                filter_passed = result_wrapper.filter_passed
+                if filter_passed in client.tokens_for_filter:
+                    client.tokens_for_filter[filter_passed] += 1
+                else:
+                    logger.warning('Returning message for nonexistant '
+                                   'filter: %s', filter_passed)
 
             to_client = gabriel_pb2.ToClient()
             to_client.result_wrapper.CopyFrom(result_wrapper)
@@ -170,7 +179,7 @@ class WebsocketServer(ABC):
             return
 
         self._filters_consumed.add(filter_name)
-        for client in self._clients:
+        for client in self._clients.values():
             client.tokens_for_filter[filter_name] = self._num_tokens_per_filter
 
     def remove_filter_consumed(self, filter_name):
@@ -183,5 +192,5 @@ class WebsocketServer(ABC):
             return
 
         self._filters_consumed.remove(filter_name)
-        for client in clients:
+        for client in self._clients.values():
             del client.tokens_for_filter[filter_name]

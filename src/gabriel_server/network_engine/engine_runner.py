@@ -4,7 +4,7 @@ from gabriel_protocol import gabriel_pb2
 
 
 THREE_MINUTES = 180000
-REQUEST_RETIRES = 3
+REQUEST_RETRIES = 3
 
 
 logger = logging.getLogger(__name__)
@@ -33,9 +33,9 @@ def run(engine, filter_name, server_address, timeout=THREE_MINUTES,
                 break
 
             message_from_server = socket.recv()
-            if message_from_server == ''b:
+            if message_from_server == b'':
                 # Heartbeat message
-                socket.send(''b)
+                socket.send(b'')
                 continue
 
             from_client = gabriel_pb2.FromClient()

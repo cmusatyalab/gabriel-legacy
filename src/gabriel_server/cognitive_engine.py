@@ -3,15 +3,16 @@ from abc import abstractmethod
 from gabriel_protocol import gabriel_pb2
 
 
-def error_result_wrapper(frame_id, status):
+def error_result_wrapper(frame_id, status, filter_passed):
     result_wrapper = gabriel_pb2.ResultWrapper()
     result_wrapper.frame_id = frame_id
     result_wrapper.status = status
+    result_wrapper.filter_passed = filter_passed
 
     return result_wrapper
 
 
-def pack_from_engine(host, port, restul_wrapper, return_token=True):
+def pack_from_engine(host, port, result_wrapper, return_token=True):
     from_engine = gabriel_pb2.FromEngine()
     from_engine.host = host
     from_engine.port = port

@@ -26,6 +26,7 @@ def run(websocket_port, zmq_address, num_tokens, input_queue_maxsize,
     context = zmq.asyncio.Context()
     zmq_socket = context.socket(zmq.ROUTER)
     zmq_socket.bind(zmq_address)
+    logger.info('Waiting for engines to connect')
 
     server = _Server(websocket_port, num_tokens, zmq_socket, timeout,
                      input_queue_maxsize)
@@ -68,7 +69,7 @@ class _Server(WebsocketServer):
             await self._add_engine_worker(payload.decode(), address)
             return
 
-        if payload == ''b:
+        if payload == b'':
             engine_worker.record_heatbeat()
             return
 
@@ -103,23 +104,25 @@ class _Server(WebsocketServer):
 
         filter_info = self._filter_infos.get(filter_name)
         if filter_info is None:
-            logger.info('No existing engines accept input that passed filter: '
+            logger.info('First engine for inputs that pass filter: '
                         '%s', filter_name)
-            filter_info = _FilterInfo(self._size_for_queues)
+            filter_info = _FilterInfo(
+                filter_name, self._size_for_queues, self._from_engines)
             self._filter_infos[filter_name] = filter_info
 
             # Tell super() to accept inputs that have passed filter_name
             self.add_filter_consumed(filter_name)
 
         engine_worker = _EngineWorker(self._zmq_socket, filter_info, address)
-        self._engines_workers[address] = engine_worker
+        self._engine_workers[address] = engine_worker
 
         filter_info.add_engine_worker(engine_worker)
 
     async def _heartbeat_helper(self):
         current_time = time.time()
-        for address, engine_worker in self._engine_workers.items():
-            if (current_time - engine.get_last_sent()) < self._timeout:
+        # We cannot directly iterate over items because we delete some entries
+        for address, engine_worker in list(self._engine_workers.items()):
+            if (current_time - engine_worker.get_last_sent()) < self._timeout:
                 continue
 
             if ((not engine_worker.get_awaiting_heartbeat_response()) and
@@ -130,7 +133,7 @@ class _Server(WebsocketServer):
             filter_info = engine_worker.get_filter_info()
             logger.info('Lost connection to engine worker that consumes items '
                         'from filter: %s', filter_info.get_name())
-            engine_worker.drop()
+            await engine_worker.drop()
             del self._engine_workers[address]
 
             if filter_info.has_no_engine_workers():
@@ -152,7 +155,7 @@ class _Server(WebsocketServer):
 
 class _EngineWorker:
     def __init__(self, zmq_socket, filter_info, address):
-        self._zmq_socket = socket
+        self._zmq_socket = zmq_socket
         self._filter_info = filter_info
         self._address = address
         self._last_sent = 0
@@ -184,20 +187,22 @@ class _EngineWorker:
         await self._send_helper(b'')
         self._awaiting_heartbeat_response = True
 
-    async def _send_helper(payload):
+    async def _send_helper(self, payload):
         await self._zmq_socket.send_multipart([self._address, b'', payload])
         self._last_sent = time.time()
 
     async def drop(self):
-        latest_input_metadata = self._filter_info.get_latest_input_metadata()
-        if (latest_input_metadata is not None and
-            self._current_input_metadata == latest_input_metadata):
+        latest_input = self._filter_info.get_latest_input()
+        if (latest_input is not None and
+            self._current_input_metadata == latest_input.metadata):
             # Return token for frame engine was in the middle of processing
             status = gabriel_pb2.ResultWrapper.Status.ENGINE_ERROR
-            metadata = latest_input_metadata
+            metadata = self._current_input_metadata
+            filter_name = self._filter_info.get_name()
             result_wrapper = cognitive_engine.error_result_wrapper(
-                metadata.frame_id, status)
-            await self._filter_info.respond_to_client(metadata, result_wrapper)
+                metadata.frame_id, status, filter_name)
+            await self._filter_info.respond_to_client(
+                metadata, result_wrapper, return_token=True)
 
         self._filter_info.remove_engine_worker(self)
 
@@ -224,7 +229,7 @@ class _FilterInfo:
         self._latest_input = None
         self._engine_workers = set()
 
-    def get_name():
+    def get_name(self):
         return self._filter_name
 
     def add_engine_worker(self, engine_worker):
@@ -244,7 +249,7 @@ class _FilterInfo:
         metadata = Metadata(frame_id=to_engine.from_client.frame_id,
                             host=to_engine.host, port=to_engine.port)
         payload = to_engine.from_client.SerializeToString()
-        metadata_payload = MetadataPayload(metadta=metadata, payload=payload)
+        metadata_payload = MetadataPayload(metadata=metadata, payload=payload)
         for engine_worker in self._engine_workers:
             if engine_worker.get_current_input_metadata() is None:
                 await engine_worker.send_payload(metadata_payload)
