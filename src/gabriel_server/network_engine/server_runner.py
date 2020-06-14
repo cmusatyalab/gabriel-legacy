@@ -9,7 +9,7 @@ from gabriel_server import cognitive_engine
 from gabriel_server.websocket_server import WebsocketServer
 
 
-ONE_MINUTE = 60
+FIVE_SECONDS = 5
 
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ MetadataPayload = namedtuple('MetadataPayload', ['metadata', 'payload'])
 
 
 def run(websocket_port, zmq_address, num_tokens, input_queue_maxsize,
-        timeout=ONE_MINUTE):
+        timeout=FIVE_SECONDS):
     context = zmq.asyncio.Context()
     zmq_socket = context.socket(zmq.ROUTER)
     zmq_socket.bind(zmq_address)
