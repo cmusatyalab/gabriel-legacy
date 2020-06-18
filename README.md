@@ -31,6 +31,7 @@ saturated with requests faster than they can be processed.
 
 The simplest possible setup involves a single cognitive engine. In this case,
 the Gabriel Server and the cognitive engine are run in the same Python program.
+Start the engine and server as follows:
 
 ```python
 local_engine.run(engine_factory=lambda: MyEngine(), filter_name='my_filter',
@@ -38,8 +39,8 @@ local_engine.run(engine_factory=lambda: MyEngine(), filter_name='my_filter',
 ```
 
 `engine_factory` should be a function that runs the constructor for the
-cognitive engine. A separate process gets creating with Python's
-`multiprocessing` moudle, and `engine_factory` gets executed in this process.
+cognitive engine. A separate process gets created with Python's
+`multiprocessing` module, and `engine_factory` gets executed in this process.
 Having `engine_factory` return a reference to an object that was created before
 `local_engine.run` was called is not recommended.
 
@@ -87,7 +88,7 @@ should be set to the longest amount of time that any of your cognitive engines
 could take to process a frame. The engine runner will not send or reply to
 messages while the cognitive engine is in the middle of processing a frame.
 
-`engine_runner.run` takes optimal `timeout` and `request_retries` parameters.
+`engine_runner.run` takes optional `timeout` and `request_retries` parameters.
 `request_retries` specifies the number of attempts that this runner will make to
 reestablish a lost connection with the Gabriel server. The number of retry
 attempts do not get replenished at any point during the engine runner's
@@ -103,7 +104,7 @@ send images, and it should not also include audio along with an image. Audio and
 images should be sent by two different filters. `FromClient` messages have an
 `extras` field that can be used to send metadata, such as GPS and IMU
 measurements, or app state. Embedding binary data to circumvent the
-"one type of media per filter" restriction is likely to lead to cognitive
+"one type of media per filter" restriction will likely lead to cognitive
 engines that are difficult for other people to maintain. Multiple payloads can
 be sent in a single `FromClient` message. This is intended for cases where an
 input to a filter must contain several consecutive images. A single `FromClient`
@@ -129,23 +130,23 @@ the first cognitive engine).
 
 Cognitive engines might not receive every frame sent to the server. In
 particular, the client will send frames to the server at the rate that the
-fastest cognitive engine can process them. Engines that consume frames that pass
-the same filter might miss some of the frames that were given to the fastest
-engine. After an engine finishes processing its current frame, it will be given
-the most recent frame that was given to the fastest engine. If this was the
-frame that the engine just completed, a new frame will be taken off the input
-queue and given to this engine.
+fastest cognitive engine can process them. Slower engines that consume frames
+from the same filter might miss some of the frames that were given to the
+fastest engine. After an engine finishes processing its current frame, it will
+be given the most recent frame that was given to the fastest engine. When the
+first engine completes the most recent frame, a new frame will be taken off the
+input queue and given to the fastest engine.
 
 ## Future Improvements
 
-1. If two filters both send the same the payload, the payload will be sent to
+1. If two filters both send the same payload, the payload will be sent to
    the server twice. Caching payloads, and referencing the cached item in
    subsequent `FromClient` messages would save bandwidth.
 2. We allow multiple different cognitive engines to consume frames that have
    passed the same early discard filter. However, there is no way to have
-   multiple instances of the same early discard filter. In particular, if there
+   multiple instances of the same engine. In particular, if there
    were multiple cognitive engines that performed face recognition, we would not
-   want more than one of them to process the same input. We need some way
+   want more than one of them to process the same frame. We need some way
    to decide which instance of an engine should process a given frame. For each
    group of engines, there should be a way to toggle between the following
    options:
@@ -154,7 +155,8 @@ queue and given to this engine.
       the best option for engines that do not store any state information. Note
       that if the amount of state needed for each client is small, the client
       and engine can pass it back and forth to each other in the `extras` field
-      of `FromClient` and `FromEngine` messages.
+      of `FromClient` and `FromEngine` messages. This would allow the client's
+      frames to be processed by any instance of a given engine.
    2. Each client is assigned to a specific instance of the engine. No other
       instances of the engine will get frames from this client. This setting
       will be used for engines that store state information for each client.
@@ -174,12 +176,13 @@ queue and given to this engine.
    1. Send results to the websocket server process using
       `multiprocessing.pipe()`. Reading from this pipe directly in the event
       loop will block it. But we could watch the appropriate file descriptor
-      using the asyncio event loop's `add_reader` function. Another option would
-      be to use the asyncio event loop's `run_in_executor` method with a
-      `concurrent.futures.ThreadPoolExecutor` to read the the pipe. Reading from
+      using the `asyncio` event loop's `add_reader` function. Another option
+      would be to use the `asyncio` event loop's `run_in_executor` method with a
+      `concurrent.futures.ThreadPoolExecutor` to read the pipe. Reading from
       the pipe in a different OS thread seems like overkill, but I have not
       profiled it.
-   2. Run the cognitive engine using the asyncio event loop's `run_in_executor`
+   2. Run the cognitive engine using the `asyncio` event loop's
+      `run_in_executor`
       method with a `concurrent.futures.ProcessPoolExecutor`. This does not seem
       like a good option because we can only get results when the function
       passed to `run_in_executor` returns. Using this method without restarting
@@ -195,12 +198,11 @@ queue and given to this engine.
       these might get full and block the event loop. Changing file descriptors
       to non-blocking mode will not work because some individual input frames
       might be very large. Pipe size can be increased, but there is a limit to
-      this. It's better to use `multiprocessing.queue()` that will automatically
-      make a best effort attempt to hold the number of items we specify when we
-      instantiate it. Unless there is some way to pass a
-      `multiprocessing.queue()` to a subprocess created with
-      `asyncio.create_subprocess_exec` that isn't some horrible hack, you should
-      not start the cognitive engine process with
+      this. It's better to use `multiprocessing.queue()`, which will make a best
+      effort attempt to hold the number of items we specify when we instantiate
+      it. Unless there is some way to pass a `multiprocessing.queue()` to a
+      subprocess created with `asyncio.create_subprocess_exec` that isn't some
+      horrible hack, you should not start the cognitive engine process with
       `asyncio.create_subprocess_exec`.
    4. Future versions of Python might offer a high level interface for
       interprocess communication that does not block the `asyncio` event loop.
