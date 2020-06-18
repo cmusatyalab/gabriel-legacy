@@ -21,8 +21,7 @@ def run(engine, filter_name, server_address, timeout=TEN_SECONDS,
         logger.info('Sent welcome message to server')
 
         while True:
-            event = socket.poll(timeout)
-            if event == 0:
+            if socket.poll(timeout) == 0:
                 logger.warning('No response from server')
                 socket.setsockopt(zmq.LINGER, 0)
                 socket.close()
