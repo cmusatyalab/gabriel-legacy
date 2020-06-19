@@ -6,6 +6,7 @@ import zmq.asyncio
 from collections import namedtuple
 from gabriel_protocol import gabriel_pb2
 from gabriel_server import cognitive_engine
+from gabriel_server import network_engine
 from gabriel_server.websocket_server import WebsocketServer
 
 
@@ -65,22 +66,31 @@ class _Server(WebsocketServer):
         address, _, payload = await self._zmq_socket.recv_multipart()
 
         engine_worker = self._engine_workers.get(address)
+        if payload == network_engine.HEARTBEAT:
+            if engine_worker == None:
+                logger.error('Heartbeat from unknown engine')
+            else:
+                engine_worker.record_heatbeat()
+            return
+        to_server_runner = gabriel_pb2.ToServerRunner()
+        to_server_runner.ParseFromString(payload)
+
         if engine_worker is None:
-            await self._add_engine_worker(payload.decode(), address)
+            await self._add_engine_worker(address, to_server_runner)
             return
 
-        if payload == b'':
-            engine_worker.record_heatbeat()
+        if to_server_runner.HasField('welcome'):
+            logger.error('Engine sent duplicate welcome message')
             return
 
-        result_wrapper = gabriel_pb2.ResultWrapper()
-        result_wrapper.ParseFromString(payload)
+        result_wrapper = to_server_runner.result_wrapper
         engine_worker_metadata = engine_worker.get_current_input_metadata()
         assert result_wrapper.frame_id == engine_worker_metadata.frame_id
 
         filter_info = self._filter_infos[result_wrapper.filter_passed]
         latest_input = filter_info.get_latest_input()
-        if latest_input.metadata == engine_worker_metadata:
+        if (latest_input is not None and
+            latest_input.metadata == engine_worker_metadata):
             # Send response to client
             await filter_info.respond_to_client(
                 engine_worker_metadata, result_wrapper, return_token=True)
@@ -91,16 +101,24 @@ class _Server(WebsocketServer):
             await filter_info.respond_to_client(
                 engine_worker_metadata, result_wrapper, return_token=False)
 
-        if latest_input.metadata is None:
+        if latest_input is None:
             # There is no new input to give the worker
             engine_worker.clear_current_input_metadata()
         else:
             # Give the worker the latest input
             await engine_worker.send_payload(latest_input)
 
-    async def _add_engine_worker(self, filter_name, address):
-        logger.info('New engine connected that consumes filter: %s',
-                    filter_name)
+    async def _add_engine_worker(self, address, to_server_runner):
+        if to_server_runner.HasField('welcome'):
+            filter_name = to_server_runner.welcome.filter_name
+            logger.info('New engine connected that consumes filter: %s',
+                        filter_name)
+        elif to_server_runner.HasField('result_wrapper'):
+            # The filter was probably running for too long.
+            filter_name = to_server_runner.result_wrapper.filter_passed
+            logger.warning('Result from unrecognized engines that consumes '
+                           'frames from filter: %s', filter_name)
+            logger.info('Adding filter as if it were new')
 
         filter_info = self._filter_infos.get(filter_name)
         if filter_info is None:
@@ -184,7 +202,7 @@ class _EngineWorker:
         return self._last_sent
 
     async def send_heartbeat(self):
-        await self._send_helper(b'')
+        await self._send_helper(network_engine.HEARTBEAT)
         self._awaiting_heartbeat_response = True
 
     async def _send_helper(self, payload):
