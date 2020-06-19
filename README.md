@@ -113,8 +113,9 @@ message should represent one single input to a cognitive engine.
 Each client has one set of tokens per early discard filter. This allows the
 client to send frames that have passed "filter x" at a different rate than it
 sends frames that have passed "filter y." A cognitive engine can only consume
-frames that have passed a single filter. A cognitive engine cannot change the
-filter that it consumes frames from.
+frames that have passed one filter. A cognitive engine cannot change the
+filter that it consumes frames from. Multiple cognitive engines can consume
+frames that pass the same filter.
 
 The Gabriel server returns a token to the client for "filter x" as soon as the
 first cognitive engine that consumes frames from "filter x" returns a
@@ -137,6 +138,37 @@ be given the most recent frame that was given to the fastest engine. When the
 first engine completes the most recent frame, a new frame will be taken off the
 input queue and given to the fastest engine.
 
+When the client is not performing early discard, set the filter name as
+something that describes the application (for example "openrtist").
+
+### Flow Control
+
+Gabriel's flow control is based on tokens. When the client sends a frame to the
+server, this consumes a token for the filter that the frame passed. When the
+first cognitive engine finishes processing this frame, the client gets back the
+token that was consumed sending the frame. This ensures that frames are sent to
+the server at the rate that the fastest engine processes them. If the server
+runs into an error processing a frame, it immediately sends a message to the
+client indicating the return of a token.
+
+The client will only send a new frame after it receives a token back. This can
+lead to periods where the server has no input when the latency between clients
+and the server is high. Setting a high number of tokens will fill up the queue
+of inputs on the server and thus reduce the length of these idle periods.
+However, the frames in the queue might be stale by the time they
+get processed. You should not set the number of tokens above two, unless the
+latency between clients and the server is high, and your workload is not latency
+critical.
+
+Each `FromClient` messages sent consumes one token. A `ToClient` message with
+`return_token` set to true indicates the return of one token. Specifying the
+specific number of tokens that a client has for a filter would lead to race
+conditions based on the order that the client and server send and receive
+messages. Representing the consumption or return of a single token in a message
+avoids this problem. Clients communicate with the server using
+[The WebSocket Protocol](https://tools.ietf.org/html/rfc6455), which uses TCP.
+Therefore, we assume that messages are delivered reliably and in order.
+
 ## Future Improvements
 
 1. If two filters both send the same payload, the payload will be sent to
@@ -156,7 +188,9 @@ input queue and given to the fastest engine.
       that if the amount of state needed for each client is small, the client
       and engine can pass it back and forth to each other in the `extras` field
       of `FromClient` and `FromEngine` messages. This would allow the client's
-      frames to be processed by any instance of a given engine.
+      frames to be processed by any instance of a given engine. However, your
+      client code needs to ignore results based on frames that the client sent
+      before it received the latest state update.
    2. Each client is assigned to a specific instance of the engine. No other
       instances of the engine will get frames from this client. This setting
       will be used for engines that store state information for each client.
@@ -168,11 +202,11 @@ input queue and given to the fastest engine.
    2. If support for multiple instances of the same engine is added, should this
       identity be used when a group is set to assign a client to one specific
       instance of an engine?
-4. When using the `network_engine` modules, the Python and Android clients do not 
-   handle the case when all engines that consume a filter disconnect. To handle
-   this case, the Gabriel server should tell all clients when all engines for a
-   certain filter disconnect. Then the clients need to remove their tokens for
-   this filter.
+4. When using the `network_engine` modules, the Python and Android clients do
+   not handle the case when all engines that consume a filter disconnect. To
+   handle this case, the Gabriel server should tell all clients when all engines
+   for a certain filter disconnect. Then the clients need to remove their tokens
+   for this filter.
 5. `local_engine` sends results from the process running the cognitive engine to
    the process running the websocket server using `os.pipe()`. The
    [early_discard_filter.py](https://github.com/cmusatyalab/gabriel-python-common/blob/master/src/gabriel_client/early_discard_filter.py)
