@@ -75,7 +75,7 @@ The server should be started before the engine runner.
 
 #### Timeouts
 
-When setting timeout values, consider the following line from
+When setting timeout values, consider the following from
 [ZeroMQ's guide](http://zguide.zeromq.org/py:chapter4#Shrugging-It-Off):
 > If we use a TCP connection that stays silent for a long while, it will, in
 > some networks, just die. Sending something (technically, a "keep-alive" more
