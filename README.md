@@ -168,7 +168,12 @@ input queue and given to the fastest engine.
    2. If support for multiple instances of the same engine is added, should this
       identity be used when a group is set to assign a client to one specific
       instance of an engine?
-4. `local_engine` sends results from the process running the cognitive engine to
+4. When using the `network_engine` modules, the Python and Android clients do not 
+   handle the case when all engines that consume a filter disconnect. To handle
+   this case, the Gabriel server should tell all clients when all engines for a
+   certain filter disconnect. Then the clients need to remove their tokens for
+   this filter.
+5. `local_engine` sends results from the process running the cognitive engine to
    the process running the websocket server using `os.pipe()`. The
    [early_discard_filter.py](https://github.com/cmusatyalab/gabriel-python-common/blob/master/src/gabriel_client/early_discard_filter.py)
    script in the Python client does something similar. This isn't the cleanest
