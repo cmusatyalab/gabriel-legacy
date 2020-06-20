@@ -249,6 +249,12 @@ Therefore, we assume that messages are delivered reliably and in order.
       to the websocket server. Note that sending results in the other direction
       (from the websocket server to the cognitive engine) should be done using
       a queue that will not get full (such as `multiprocessing.queue()`).
+6. The security of Gabriel could be improved in a number of areas. The
+   connections between clients and the server, and the connections between
+   the `network_engine.server_runner` and engine runners, could both be
+   improved. These improvements could be in the form of encrypting traffic,
+   requiring a password for clients and engine runners to connect to the server,
+   and specifying a list of approved clients and engine runners on the server.
 
 ## Publishing Changes to PyPi
 
